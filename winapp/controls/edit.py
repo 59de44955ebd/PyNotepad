@@ -112,8 +112,6 @@ class Edit(Window):
     def __init__(self, parent_window=None, style=WS_CHILD | WS_VISIBLE, ex_style=0,
             left=0, top=0, width=0, height=0, window_title=0, wrap_hwnd=None):
 
-#        self.is_dark = False
-
         super().__init__(
             EDIT_CLASS,
             parent_window=parent_window,
@@ -140,20 +138,7 @@ class Edit(Window):
     ########################################
     def apply_theme(self, is_dark):
         super().apply_theme(is_dark)
-
-#        self.is_dark = is_dark
-#        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)
-
-#        if is_dark:
-#            def _callback(hwnd, msg, wparam, lparam):
-#                if msg == WM_CTLCOLOREDIT and lparam == self.hwnd:
-#                    gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
-#                    gdi32.SetBkColor(wparam, CONTROL_COLOR_DARK)
-#                    gdi32.SetDCBrushColor(wparam, CONTROL_COLOR_DARK)
-#                    return gdi32.GetStockObject(DC_BRUSH)
-#            self.hook(self.hwnd_parent, _callback)
-#        else:
-#            self.unhook(self.hwnd_parent)
+        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)
 
         if is_dark:
             # replace client edge with border
@@ -173,9 +158,6 @@ class Edit(Window):
                 user32.SetWindowLongA(self.hwnd, GWL_STYLE, style & ~WS_BORDER)
                 user32.SetWindowPos(self.hwnd, 0, 0,0, 0,0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
             self.parent_window.unregister_message_callback(WM_CTLCOLOREDIT, self._on_WM_CTLCOLOREDIT)
-
-#            # apply same look as for comboxes
-#            uxtheme.SetWindowTheme(self.current_control.hwnd, 'DarkMode_CFD' if self.is_dark else  'CFD', 'ComboBox')
 
     ########################################
     #

@@ -221,7 +221,7 @@ class App(MainWin):
             self.register_message_callback(WM_SETTINGCHANGE, _on_WM_SETTINGCHANGE)
 
             if self._dark_mode:
-                self._apply_theme(True)
+                self.apply_theme(True)
                 user32.CheckMenuItem(self.hmenu, IDM_DARK_MODE, MF_BYCOMMAND | MF_CHECKED)
         else:
             user32.EnableMenuItem(self.hmenu, IDM_DARK_MODE, MF_BYCOMMAND | MF_GRAYED)
@@ -602,23 +602,6 @@ class App(MainWin):
         flag = MF_BYCOMMAND | (MF_ENABLED if char_pos_end.value > char_pos_start.value else MF_GRAYED)
         for item_id in (IDM_CUT, IDM_COPY, IDM_DELETE):
             user32.EnableMenuItem(self.hmenu, item_id, flag)
-
-    ########################################
-    #
-    ########################################
-    def _apply_theme(self, is_dark):
-        # Update window titlebar, window background, menubar and menu colors
-        super().apply_theme(self._dark_mode)
-
-        if sys.getwindowsversion().build < 22000:
-            # Hack to force update of titlebar colors in Win < 11
-            rc = self.get_window_rect()
-            self.move_window(rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top + 1)
-            self.move_window(rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top)
-            # user32.RedrawWindow(self.hwnd, 0, 0, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN)
-
-        self.edit.apply_theme(self._dark_mode)
-        self.statusbar.apply_theme(self._dark_mode)
 
     ########################################
     #
@@ -1045,7 +1028,7 @@ class App(MainWin):
     def action_dark_mode(self):
         self._dark_mode = not self._dark_mode
         user32.CheckMenuItem(self.hmenu, IDM_DARK_MODE, MF_BYCOMMAND | (MF_CHECKED if self._dark_mode else MF_UNCHECKED))
-        self._apply_theme(self._dark_mode)
+        self.apply_theme(self._dark_mode)
 
     ########################################
     #

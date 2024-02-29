@@ -7,16 +7,8 @@ from winapp.dlls import gdi32, kernel32, user32, uxtheme
 from winapp.controls.common import *
 from winapp.themes import *
 
-# tmp
-#import winapp.const as _tmp
-#WM = dict((v, k) for k, v in _tmp.__dict__.items() if k.startswith("WM_"))
-#def DBG_MSG(msg, *args):
-#    print(WM[msg] if msg in WM else hex(msg), *args)
-
-
 hdc = user32.GetDC(0)
-DPI_X = gdi32.GetDeviceCaps(hdc, LOGPIXELSX)  # 96
-DPI_Y = gdi32.GetDeviceCaps(hdc, LOGPIXELSY)  # 96
+DPI_Y = gdi32.GetDeviceCaps(hdc, LOGPIXELSY)
 user32.ReleaseDC(0, hdc)
 
 
@@ -55,7 +47,11 @@ class Window(object):
             left=0, top=0, width=0, height=0, window_title=0, hmenu=0, parent_window=None, wrap_hwnd=None):
 
         self.parent_window = parent_window
+        self.children = []
+        if parent_window:
+            parent_window.children.append(self)
         self.is_dark = False
+
         self.__old_proc = None
         self.__new_proc = None
         self.__message_map = {}
@@ -91,14 +87,6 @@ class Window(object):
                     return res
         return self.__old_proc(hwnd, msg, wparam, lparam)
 
-#    def register_message_callback(self, msg, callback, overwrite=False):
-#        if overwrite:
-#            self.__message_map[msg] = [callback]
-#        else:
-#            if msg not in self.__message_map:
-#                self.__message_map[msg] = []
-#            self.__message_map[msg].append(callback)
-
     def register_message_callback(self, msg, callback):
         if msg not in self.__message_map:
             self.__message_map[msg] = []
@@ -123,7 +111,6 @@ class Window(object):
         user32.SetWindowPos(self.hwnd, HWND_TOPMOST if flag else HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
 
     def set_layered(self):
-        # Set WS_EX_LAYERED on this window
         user32.SetWindowLongPtrA(self.hwnd, GWL_EXSTYLE,
                 user32.GetWindowLongPtrA(self.hwnd, GWL_EXSTYLE) | WS_EX_LAYERED)
 
@@ -187,4 +174,5 @@ class Window(object):
 
     def apply_theme(self, is_dark):
         self.is_dark = is_dark
-        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)
+        for child in self.children:
+            child.apply_theme(is_dark)

@@ -4,21 +4,13 @@ from ctypes.wintypes import (HWND, WORD, DWORD, LONG, HICON, WPARAM, LPARAM, HAN
         LPVOID, INT, RECT, POINT, BYTE, BOOL, COLORREF, LPPOINT)
 
 from winapp.const import *
-from winapp.wintypes_extended import * #LONG_PTR, WNDPROC, MAKELONG, MAKEINTRESOURCEW
-from winapp.dlls import comdlg32, gdi32, shell32, user32
+from winapp.wintypes_extended import *
+from winapp.dlls import comdlg32, gdi32, shell32, user32, ACCEL
 from winapp.window import *
 from winapp.menu import *
 from winapp.themes import *
-from winapp.dialog import *  # DialogData
+from winapp.dialog import *
 from winapp.controls.button import *
-
-
-class ACCEL(Structure):
-    _fields_ = [
-        ("fVirt", BYTE),
-        ("key", WORD),
-        ("cmd", WORD),
-    ]
 
 VKEY_NAME_MAP = {
     'Del': VK_DELETE,
@@ -55,6 +47,7 @@ class MainWin(Window):
         # For asnyc dialog (only one at a time supported)
         self.__hwnd_dialog = None
         self.__dialogproc = None
+        self.__dialog_children = []
 
         def _on_WM_TIMER(hwnd, wparam, lparam):
             if wparam in self.__timers:
@@ -123,7 +116,7 @@ class MainWin(Window):
             acc_table = (ACCEL * len(accels))()
             for (i, acc) in enumerate(accels):
                 acc_table[i] = ACCEL(TRUE | acc[0], acc[1], acc[2])
-            self.__haccel = user32.CreateAcceleratorTableW(acc_table[0], len(accels))
+            self.__haccel = user32.CreateAcceleratorTableW(acc_table, len(accels))
         else:
             self.__haccel = None
 
@@ -197,7 +190,7 @@ class MainWin(Window):
         user32.PostMessageW(self.hwnd, WM_NULL, 0, 0)
 
     def apply_theme(self, is_dark):
-        self.is_dark = is_dark
+        super().apply_theme(is_dark)
 
         # Update colors of window titlebar
         dwm_use_dark_mode(self.hwnd, is_dark)
@@ -325,6 +318,7 @@ class MainWin(Window):
         user32.DestroyWindow(self.__hwnd_dialog)
         self.__hwnd_dialog = None
         self.__dialogproc = None
+        self.__dialog_children = []
 
     def show_dialog_sync(self, dlg_data, dialog_proc_callback):
 
@@ -335,6 +329,7 @@ class MainWin(Window):
                     return res
             if msg == WM_CLOSE:
                  user32.EndDialog(hwnd, 0)
+                 self.__dialog_children = []
             return dialog_proc_callback(hwnd, msg, wparam, lparam)
 
         return user32.DialogBoxIndirectParamW(
@@ -380,10 +375,10 @@ class MainWin(Window):
             return None
 
     def show_message_box(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK):
-        font = ['MS Shell Dlg', 8]
-
 #        if not self.is_dark:
 #            return user32.MessageBoxW(self.hwnd, text, caption, utype)
+
+        font = ['MS Shell Dlg', 8]  # ["Segoe UI", 8]
 
         if utype & MB_ICONINFORMATION:
             hicon = get_stock_icon(SIID_INFO)
@@ -527,7 +522,7 @@ class MainWin(Window):
             EnumWindowsProc = WINFUNCTYPE(BOOL, HWND, LPARAM)
             user32.EnumChildWindows(hwnd_dialog, EnumWindowsProc(_enum_child_func), 0)
 
-            h_font = user32.SendMessageW(hwnd_dialog, WM_GETFONT, 0, 0)
+            hfont = user32.SendMessageW(hwnd_dialog, WM_GETFONT, 0, 0)
 
             for hwnd in controls:
                 buf = create_unicode_buffer(32)
@@ -549,18 +544,17 @@ class MainWin(Window):
                         user32.SetWindowTextW(hwnd, window_title)
 
                         window_checkbox = Window('Button', wrap_hwnd=hwnd)
-
-                        checkbox_static = Static(
-                                window_checkbox,
-                                style=WS_CHILD | SS_SIMPLE | WS_VISIBLE,
-                                ex_style=WS_EX_TRANSPARENT,
-                                left=16,
-                                top=3,
-                                width=rc.right - 16,
-                                height=rc.bottom,
-                                window_title=window_title
-                                )
-                        user32.SendMessageW(checkbox_static.hwnd, WM_SETFONT, h_font, 0)
+                        self.__dialog_children.append(window_checkbox)  # prevent garbage collection while dialog exists
+                        hwnd_static = user32.CreateWindowExW(
+                                WS_EX_TRANSPARENT,
+                                WC_STATIC,
+                                window_title,
+                                WS_CHILD | SS_SIMPLE | WS_VISIBLE,
+                                16, 3,
+                                rc.right - 16, rc.bottom,
+                                window_checkbox.hwnd,
+                                0, 0, 0)
+                        user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
 
                         def _on_WM_CTLCOLORSTATIC(hwnd, wparam, lparam):
                             gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
@@ -587,7 +581,7 @@ class MainWin(Window):
                                 hwnd_dialog,
                                 0, 0, 0
                                 )
-                        user32.SendMessageW(hwnd_static, WM_SETFONT, h_font, 0)
+                        user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
 
                 elif window_class == 'Edit':
                     user32.SetWindowLongPtrA(hwnd, GWL_EXSTYLE,

@@ -181,19 +181,7 @@ class Button(Window):
     ########################################
     def apply_theme(self, is_dark):
         super().apply_theme(is_dark)
-
-#        self.is_dark = is_dark
-#        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)
-
-#        if is_dark:
-#            def _callback(hwnd, msg, wparam, lparam):
-#                if msg == WM_CTLCOLORBTN and lparam == self.hwnd:
-#                    gdi32.SetDCBrushColor(wparam, BG_COLOR_DARK)
-#                    return gdi32.GetStockObject(DC_BRUSH)
-#            self.hook(self.hwnd_parent, _callback)
-#        else:
-#            self.unhook(self.hwnd_parent)
-
+        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)
         if is_dark:
             self.parent_window.register_message_callback(WM_CTLCOLORBTN, self._on_WM_CTLCOLORBTN)
         else:
@@ -219,14 +207,11 @@ class CheckBox(Window):
     def __init__(self, parent_window, style=WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, ex_style=0,
             left=0, top=0, width=0, height=0, window_title=0):
 
-#        self.is_dark = False
-
         super().__init__(
             WC_BUTTON,
-            #hwnd_parent,
             parent_window=parent_window,
             style=style,
-            ex_style=ex_style, # | WS_EX_TRANSPARENT,
+            ex_style=ex_style,
             left=left,
             top=top,
             width=width,
@@ -244,69 +229,15 @@ class CheckBox(Window):
             window_title=window_title.replace('&', '')
         )
 
-#        def _callback(hwnd, msg, wparam, lparam):
-#            if msg == WM_CTLCOLORSTATIC and lparam in (self.hwnd, self.checkbox_static.hwnd):
-#                if self.is_dark:
-#                    gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
-#
-#                    gdi32.SetBkColor(wparam, BG_COLOR_DARK)
-#                    #gdi32.SetBkMode(wparam, TRANSPARENT)
-#
-#                    gdi32.SetDCBrushColor(wparam, BG_COLOR_DARK)
-#                    return gdi32.GetStockObject(DC_BRUSH)
-#                else:
-#                    return 0
-#
-#        self.hook(hwnd_parent, _callback)
-#        self.hook(self.hwnd, _callback)
-
-#        parent_window.register_message_callback(WM_CTLCOLORSTATIC, self._on_WM_CTLCOLORSTATIC)
-
     ########################################
     #
     ########################################
-    def destroy_window(self):
-#        if self.is_dark:
-#            self.parent_window.unregister_message_callback(WM_CTLCOLORSTATIC, self._on_WM_CTLCOLORSTATIC)
-        super().destroy_window()
-
-    ########################################
-    #
-    ########################################
-#    def _on_WM_CTLCOLORSTATIC(self, hwnd, wparam, lparam):
-#        print('CHECKBOX _on_WM_CTLCOLORSTATIC')
-#        if lparam == self.hwnd:
-#            if self.is_dark:
-#                gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
-#
-#                gdi32.SetBkColor(wparam, CONTROL_COLOR_DARK)
-#                #gdi32.SetBkMode(wparam, TRANSPARENT)
-#
-#                gdi32.SetDCBrushColor(wparam, BG_COLOR_DARK)
-#                return gdi32.GetStockObject(DC_BRUSH)
-#            else:
-#                return 0
-
-    ########################################
-    #
-    ########################################
-    def set_font(self, **kwargs): #font_name='MS Shell Dlg', font_size=8, font_weight=FW_DONTCARE, hfont=None):
+    def set_font(self, **kwargs):
         self.checkbox_static.set_font(**kwargs)
-#        if not hfont:
-#            hfont = gdi32.CreateFontW(font_size, 0, 0, 0, font_weight, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-#                        CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
-#        user32.SendMessageW(self.checkbox_static.hwnd, WM_SETFONT, hfont, MAKELPARAM(1, 0))
 
     ########################################
     #
     ########################################
     def apply_theme(self, is_dark):
-#        self.is_dark = is_dark
-#        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)
         super().apply_theme(is_dark)
-
-        self.checkbox_static.apply_theme(is_dark)
-#        if is_dark:
-#            self.parent_window.register_message_callback(WM_CTLCOLORSTATIC, self._on_WM_CTLCOLORSTATIC)
-#        else:
-#            self.parent_window.unregister_message_callback(WM_CTLCOLORSTATIC, self._on_WM_CTLCOLORSTATIC)
+        uxtheme.SetWindowTheme(self.hwnd, 'DarkMode_Explorer' if is_dark else 'Explorer', None)

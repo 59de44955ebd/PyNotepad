@@ -1,5 +1,5 @@
-from ctypes import c_uint64, c_ulong, c_long, c_longlong, c_int, c_int64, WINFUNCTYPE, CFUNCTYPE
-from ctypes.wintypes import HANDLE, HWND, LPARAM, WPARAM, LONG, WORD, DWORD, LPCWSTR, LPWSTR, UINT, BOOL, HMODULE
+from ctypes import c_uint64, c_ulong, c_long, c_longlong, c_int, c_int64, WINFUNCTYPE, CFUNCTYPE, Structure
+from ctypes.wintypes import HANDLE, HWND, LPARAM, WPARAM, LONG, WORD, DWORD, LPCWSTR, LPWSTR, UINT, BOOL, HMODULE, BYTE
 
 import sys
 is_64_bit = sys.maxsize > 2**32
@@ -14,6 +14,13 @@ WNDPROC = WINFUNCTYPE(LONG_PTR, HWND, UINT, WPARAM, LPARAM)
 WNDENUMPROC = WINFUNCTYPE(BOOL, HWND, LPARAM)
 WINEVENTPROCTYPE = WINFUNCTYPE(None, HANDLE, DWORD, HWND, LONG, LONG, DWORD, DWORD)
 ENUMRESNAMEPROCW = CFUNCTYPE(BOOL, HMODULE, LPCWSTR, LPWSTR, LONG_PTR)
+
+class ACCEL(Structure):
+    _fields_ = [
+        ("fVirt", BYTE),
+        ("key", WORD),
+        ("cmd", WORD),
+    ]
 
 # Macros
 def MAKELONG(wLow, wHigh):
