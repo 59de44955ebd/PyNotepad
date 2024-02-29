@@ -634,6 +634,7 @@ class App(MainWin):
     ########################################
     def action_exit(self, *args):
         if not self._handle_dirty():
+            user32.SetFocus(self.edit.hwnd)
             return 1
         self._save_state()
         super().quit()
@@ -643,6 +644,7 @@ class App(MainWin):
     ########################################
     def action_new(self):
         if not self._handle_dirty():
+            user32.SetFocus(self.edit.hwnd)
             return
         self._filename = None
         self._is_dirty = False
@@ -1116,6 +1118,7 @@ class App(MainWin):
         self.show_message_box(
                 _('ABOUT_TEXT').format(APP_NAME, APP_VERSION, APP_COPYRIGHT),
                 _('ABOUT_CAPTION').format(APP_NAME))
+        user32.SetFocus(self.edit.hwnd)
 
     ########################################
     #
