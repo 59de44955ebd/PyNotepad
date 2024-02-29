@@ -77,7 +77,7 @@ echo Creating .zip archive...
 echo ****************************************
 cd dist
 del "%APP_NAME%-windows-x64.zip" 2>nul
-zip -q -r "%APP_NAME%-windows-x64.zip" "%APP_NAME%"
+zip -q -r "%APP_NAME%-windows-x64-portable.zip" "%APP_NAME%"
 cd ..
 
 echo.
@@ -119,7 +119,7 @@ for /F %%d in ('dir /s /b /ad^|sort /r') do (
 cd "%DIR%"
 
 :: create new installer
-del "dist\%APP_NAME%-windows-x64.exe" 2>nul
+del "dist\%APP_NAME%-windows-x64-setup.exe" 2>nul
 set PATH=C:\Program Files (x86)\NSIS;%PATH%
 makensis nsis\make-installer.nsi
 
