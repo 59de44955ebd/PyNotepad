@@ -219,12 +219,12 @@ class MainWin(Window):
                 def _on_WM_UAHDRAWMENU(hwnd, wparam, lparam):
                     pUDM = cast(lparam, POINTER(UAHMENU)).contents
                     mbi = MENUBARINFO()
-                    ok = user32.GetMenuBarInfo(self.hwnd, OBJID_MENU, 0, byref(mbi))
+                    ok = user32.GetMenuBarInfo(hwnd, OBJID_MENU, 0, byref(mbi))
                     rc_win = RECT()
-                    user32.GetWindowRect(self.hwnd, byref(rc_win))
+                    user32.GetWindowRect(hwnd, byref(rc_win))
                     rc = mbi.rcBar
                     user32.OffsetRect(byref(rc), -rc_win.left, -rc_win.top)
-                    res = user32.FillRect(pUDM.hdc, byref(rc), MENUBAR_BG_BRUSH_DARK)  # BG_BRUSH_DARK
+                    res = user32.FillRect(pUDM.hdc, byref(rc), MENUBAR_BG_BRUSH_DARK)
                     return TRUE
                 self.register_message_callback(WM_UAHDRAWMENU, _on_WM_UAHDRAWMENU)
 
@@ -239,33 +239,39 @@ class MainWin(Window):
                     if pUDMI.dis.itemState & ODS_HOTLIGHT or pUDMI.dis.itemState & ODS_SELECTED:
                         user32.FillRect(pUDMI.um.hdc, byref(pUDMI.dis.rcItem), MENU_BG_BRUSH_HOT)
                     else:
-                        user32.FillRect(pUDMI.um.hdc, byref(pUDMI.dis.rcItem), MENUBAR_BG_BRUSH_DARK)  # BG_BRUSH_DARK
+                        user32.FillRect(pUDMI.um.hdc, byref(pUDMI.dis.rcItem), MENUBAR_BG_BRUSH_DARK)
                     gdi32.SetBkMode(pUDMI.um.hdc, TRANSPARENT)
                     gdi32.SetTextColor(pUDMI.um.hdc, TEXT_COLOR_DARK)
                     user32.DrawTextW(pUDMI.um.hdc, mii.dwTypeData, len(mii.dwTypeData), byref(pUDMI.dis.rcItem), DT_CENTER | DT_SINGLELINE | DT_VCENTER)
                     return TRUE
-
                 self.register_message_callback(WM_UAHDRAWMENUITEM, _on_WM_UAHDRAWMENUITEM)
 
                 def UAHDrawMenuNCBottomLine(hwnd, wparam, lparam):
                     rcClient = RECT()
-                    user32.GetClientRect(self.hwnd, byref(rcClient))
-                    user32.MapWindowPoints(self.hwnd, None, byref(rcClient), 2)
+                    user32.GetClientRect(hwnd, byref(rcClient))
+                    user32.MapWindowPoints(hwnd, None, byref(rcClient), 2)
                     rcWindow = RECT()
-                    user32.GetWindowRect(self.hwnd, byref(rcWindow))
+                    user32.GetWindowRect(hwnd, byref(rcWindow))
                     user32.OffsetRect(byref(rcClient), -rcWindow.left, -rcWindow.top)
                     # the rcBar is offset by the window rect
                     rcAnnoyingLine = rcClient
                     rcAnnoyingLine.bottom = rcAnnoyingLine.top
                     rcAnnoyingLine.top -= 1
-                    hdc = user32.GetWindowDC(self.hwnd)
+                    hdc = user32.GetWindowDC(hwnd)
                     user32.FillRect(hdc, byref(rcAnnoyingLine), BG_BRUSH_DARK)
-                    user32.ReleaseDC(self.hwnd, hdc)
-                    return 1
+                    user32.ReleaseDC(hwnd, hdc)
 
-                self.register_message_callback(WM_NCPAINT, lambda hwnd, wparam, lparam:
-                    user32.DefWindowProcW(self.hwnd, WM_NCPAINT, wparam, lparam) or UAHDrawMenuNCBottomLine(hwnd, wparam, lparam))
-                self.register_message_callback(WM_NCACTIVATE, UAHDrawMenuNCBottomLine)
+                def _on_WM_NCPAINT(hwnd, wparam, lparam):
+                    user32.DefWindowProcW(hwnd, WM_NCPAINT, wparam, lparam)
+                    UAHDrawMenuNCBottomLine(hwnd, wparam, lparam)
+                    return TRUE
+                self.register_message_callback(WM_NCPAINT, _on_WM_NCPAINT)
+
+                def _on_WM_NCACTIVATE(hwnd, wparam, lparam):
+                    user32.DefWindowProcW(hwnd, WM_NCACTIVATE, wparam, lparam)
+                    UAHDrawMenuNCBottomLine(hwnd, wparam, lparam)
+                    return TRUE
+                self.register_message_callback(WM_NCACTIVATE, _on_WM_NCACTIVATE)
 
             else:
                 self.unregister_message_callback(WM_UAHDRAWMENU)
