@@ -1,0 +1,18 @@
+{
+	"ABOUT_CAPTION": "Über {}",
+	"ABOUT_TEXT": "{} v0.{}\n(c) {}\n\nEin in Python geschriebener MS Notepad-Klon,\nbasierend auf nativen Win32 controls und ctypes.",
+	"CANNOT_FIND": "\"{}\" kann nicht gefunden werden.",
+	"GOTO_BEYOND": "Die Zeilennummer ist größer als die Gesamtanzahl der Zeilen",
+	"LINE_COLUMN": "Zeile {}, Spalte {}",
+	"SAVE_CHANGES": "Möchten Sie die Änderungen an {} speichern?",
+	"CTRL": "Strg",
+	"SHIFT": "Umschalt",
+    "Untitled": "Unbenannt",
+    "Save As": "Speichern unter",
+    "Text Documents": "Textdateien",
+    "All Files": "Alle Dateien",
+    "Open": "Öffnen",
+    "Found next from the bottom": "Nächster Treffer von unten",
+	"Found next from the top": "Nächster Treffer von oben",
+	"Goto Line": "Gehe zu Zeile"
+}

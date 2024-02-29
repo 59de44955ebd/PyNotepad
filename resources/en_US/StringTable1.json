@@ -1,0 +1,8 @@
+{
+	"ABOUT_CAPTION": "About {}",
+	"ABOUT_TEXT": "{} v0.{}\n(c) {}\n\nA clone of MS Notepad written in pure Python,\nbased on native Win32 controls and ctypes.",
+	"CANNOT_FIND": "Cannot find \"{}\"",
+	"GOTO_BEYOND": "The line number is beyond the total number of lines",
+	"LINE_COLUMN": "Ln {}, Col {}",
+	"SAVE_CHANGES": "Do you want to save changes to {}?"
+}
