@@ -56,7 +56,7 @@ class Window(object):
         self.__new_proc = None
         self.__message_map = {}
 
-        if wrap_hwnd:
+        if wrap_hwnd is not None:
             self.hwnd = wrap_hwnd
         else:
             self.hwnd = user32.CreateWindowExW(

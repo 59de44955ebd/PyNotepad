@@ -82,12 +82,7 @@ class App(MainWin):
         self._eol_mode_id = IDM_EOL_CRLF
         self._encoding_id = IDM_UTF_8
 
-        self._has_dialog_find = False
-        self._has_dialog_replace = False
-
-        ########################################
         # load menu resource
-        ########################################
         with open(os.path.join(APP_DIR, 'resources', LANG, 'Menu1.json'), 'rb') as f:
             menu_data = json.loads(f.read())
 
@@ -133,9 +128,7 @@ class App(MainWin):
         else:
             hicon = user32.LoadImageW(0, os.path.join(APP_DIR, 'app.ico'), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
 
-        ########################################
         # create main window
-        ########################################
         super().__init__(
                 self._get_caption(),
                 left=left, top=top, width=width, height=height,
@@ -148,43 +141,10 @@ class App(MainWin):
             user32.CheckMenuItem(self.hmenu, IDM_WORD_WRAP, MF_BYCOMMAND | MF_CHECKED)
             user32.EnableMenuItem(self.hmenu, IDM_GO_TO, MF_BYCOMMAND | MF_GRAYED)
 
-        ########################################
-        # create statusbar
-        ########################################
-        self.statusbar = StatusBar(self, parts=(0, 140, 50, 120, 120), parts_right_aligned=True)
-        self._show_caret_pos()
-        self.statusbar.set_text('100%', STATUSBAR_PART_ZOOM)
-
-        buf = create_unicode_buffer(24)
-        user32.GetMenuStringW(self.hmenu, self._eol_mode_id, buf, 24, MF_BYCOMMAND)
-        self.statusbar.set_text(buf.value, STATUSBAR_PART_EOL)
-
-        user32.GetMenuStringW(self.hmenu, self._encoding_id, buf, 24, MF_BYCOMMAND)
-        self.statusbar.set_text(buf.value, STATUSBAR_PART_ENCODING)
-
-        if self._show_statusbar:
-            user32.CheckMenuItem(self.hmenu, IDM_STATUS_BAR, MF_BYCOMMAND | MF_CHECKED)
-        else:
-            self.statusbar.show(SW_HIDE)
-
-        ########################################
-        # create edit control
-        ########################################
+        self._create_statusbar()
+        self._create_dialogs()
         self._create_edit()
 
-        ########################################
-        # load dialog resources
-        ########################################
-        with open(os.path.join(APP_DIR, 'resources', LANG, 'Dialog1540.json'), 'rb') as f:
-            self._dlg_data_find = self.load_dialog_data(json.loads(f.read()))
-        with open(os.path.join(APP_DIR, 'resources', LANG, 'Dialog1541.json'), 'rb') as f:
-            self._dlg_data_replace = self.load_dialog_data(json.loads(f.read()))
-        with open(os.path.join(APP_DIR, 'resources', LANG, 'Dialog14.json'), 'rb') as f:
-            self._dlg_data_goto = self.load_dialog_data(json.loads(f.read()))
-
-        ########################################
-        #
-        ########################################
         def _on_WM_SIZE(hwnd, wparam, lparam):
             width, height = lparam & 0xFFFF, (lparam >> 16) & 0xFFFF
             self.statusbar.update_size()  # Reposition and resize the statusbar
@@ -231,6 +191,238 @@ class App(MainWin):
 
         self.show()
         user32.SetFocus(self.edit.hwnd)
+
+    ########################################
+    #
+    ########################################
+    def _create_dialogs(self):
+        with open(os.path.join(APP_DIR, 'resources', LANG, 'Dialog1540.json'), 'rb') as f:
+            dialog_dict = json.loads(f.read())
+
+        def _dialog_proc_find(hwnd, msg, wparam, lparam):
+
+            if msg == WM_INITDIALOG:
+                hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
+
+                # Limit search input to 127 chars
+                user32.SendMessageW(hwnd_edit, EM_SETLIMITTEXT, 127, 0)
+
+                # check if something is selected
+                pos_start, pos_end = DWORD(), DWORD()
+                user32.SendMessageW(self.edit.hwnd, EM_GETSEL, byref(pos_start), byref(pos_end))
+                if pos_end.value > pos_start.value:
+                    text_len = user32.SendMessageW(self.edit.hwnd, WM_GETTEXTLENGTH, 0, 0) + 1
+                    text_buf = create_unicode_buffer(text_len)
+                    user32.SendMessageW(self.edit.hwnd, WM_GETTEXT, text_len, text_buf)
+                    self._search_term = text_buf.value[pos_start.value:pos_end.value][:127]
+                elif self._search_term == '':
+                    self._search_term = self._saved_search_term
+
+                # update button states
+                if self._search_term:
+                    user32.SendMessageW(hwnd_edit, WM_SETTEXT, 0, create_unicode_buffer(self._search_term))
+                else:
+                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), 0)
+                if self._search_up:
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_UP), BM_SETCHECK, BST_CHECKED, 0)
+                else:
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_DOWN), BM_SETCHECK, BST_CHECKED, 0)
+                if self._match_case:
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_SETCHECK, BST_CHECKED, 0)
+                if self._wrap_arround:
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_SETCHECK, BST_CHECKED, 0)
+
+            elif msg == WM_COMMAND:
+                control_id = LOWORD(wparam)
+                command = HIWORD(wparam)
+
+                if control_id == ID_EDIT_FIND:
+                    if command == EN_UPDATE:
+                        text_len = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_EDIT_FIND), WM_GETTEXTLENGTH, 0, 0)
+                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), int(text_len > 0))
+
+                elif command == BN_CLICKED:
+                    if control_id == ID_FIND_NEXT:
+                        self._match_case = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_GETCHECK, 0, 0)
+                        self._wrap_arround = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_GETCHECK, 0, 0)
+                        self._search_up = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_UP), BM_GETCHECK, 0, 0)
+                        hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
+                        text_len = user32.SendMessageW(hwnd_edit, WM_GETTEXTLENGTH, 0, 0) + 1
+                        text_buf = create_unicode_buffer(text_len)
+                        user32.SendMessageW(hwnd_edit, WM_GETTEXT, text_len, text_buf)
+                        self._search_term = text_buf.value
+                        self._find()
+
+                    elif control_id == ID_CANCEL:
+                        user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+
+            elif msg == WM_CLOSE:
+                user32.SetFocus(self.edit.hwnd)
+
+            return FALSE
+
+        self.dialog_find = Dialog(self, dialog_dict, _dialog_proc_find)
+
+        with open(os.path.join(APP_DIR, 'resources', LANG, 'Dialog1541.json'), 'rb') as f:
+            dialog_dict = json.loads(f.read())
+
+        def _dialog_proc_replace(hwnd, msg, wparam, lparam):
+            if msg == WM_INITDIALOG:
+                # Limit search and replace input to 127 chars
+                hwnd_search_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
+                user32.SendMessageW(hwnd_search_edit, EM_SETLIMITTEXT, 127, 0)
+
+                hwnd_replace_edit = user32.GetDlgItem(hwnd, ID_EDIT_REPLACE)
+                user32.SendMessageW(hwnd_replace_edit, EM_SETLIMITTEXT, 127, 0)
+
+                # check if something is selected
+                pos_start, pos_end = DWORD(), DWORD()
+                user32.SendMessageW(self.edit.hwnd, EM_GETSEL, byref(pos_start), byref(pos_end))
+                if pos_end.value > pos_start.value:
+                    text_len = user32.SendMessageW(self.edit.hwnd, WM_GETTEXTLENGTH, 0, 0) + 1
+                    text_buf = create_unicode_buffer(text_len)
+                    user32.SendMessageW(self.edit.hwnd, WM_GETTEXT, text_len, text_buf)
+                    self._search_term = text_buf.value[pos_start.value:pos_end.value][:127]
+                # update button states
+                if self._search_term:
+                    user32.SendMessageW(hwnd_search_edit, WM_SETTEXT, 0, create_unicode_buffer(self._search_term))
+                else:
+                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), 0)
+                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE), 0)
+                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE_ALL), 0)
+                if self._replace_term:
+                    user32.SendMessageW(hwnd_replace_edit, WM_SETTEXT, 0, create_unicode_buffer(self._search_term))
+                if self._match_case:
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_SETCHECK, BST_CHECKED, 0)
+                if self._wrap_arround:
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_SETCHECK, BST_CHECKED, 0)
+
+            elif msg == WM_COMMAND:
+                control_id = LOWORD(wparam)
+                command = HIWORD(wparam)
+
+                if control_id == ID_EDIT_FIND:
+                    if command == EN_UPDATE:
+                        text_len = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_EDIT_FIND), WM_GETTEXTLENGTH, 0, 0)
+                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), int(text_len > 0))
+                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE), int(text_len > 0))
+                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE_ALL), int(text_len > 0))
+
+                elif command == BN_CLICKED:
+                    if control_id in (ID_FIND_NEXT, ID_REPLACE, ID_REPLACE_ALL):
+                        self._match_case = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_GETCHECK, 0, 0)
+                        self._wrap_arround = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_GETCHECK, 0, 0)
+
+                        hwnd_search_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
+                        text_len = user32.SendMessageW(hwnd_search_edit, WM_GETTEXTLENGTH, 0, 0) + 1
+                        text_buf = create_unicode_buffer(text_len)
+                        user32.SendMessageW(hwnd_search_edit, WM_GETTEXT, text_len, text_buf)
+                        self._search_term = text_buf.value
+
+                        hwnd_replace_edit = user32.GetDlgItem(hwnd, ID_EDIT_REPLACE)
+                        text_len = user32.SendMessageW(hwnd_replace_edit, WM_GETTEXTLENGTH, 0, 0) + 1
+                        text_buf = create_unicode_buffer(text_len)
+                        user32.SendMessageW(hwnd_replace_edit, WM_GETTEXT, text_len, text_buf)
+                        self._replace_term = text_buf.value
+
+                        if control_id == ID_FIND_NEXT:
+                            self._find()
+                        elif control_id == ID_REPLACE:
+                            self._replace()
+                        elif control_id == ID_REPLACE_ALL:
+                            self._replace_all()
+
+                    elif control_id == ID_CANCEL:
+                        user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+
+            elif msg == WM_CLOSE:
+                user32.SetFocus(self.edit.hwnd)
+
+            return FALSE
+
+        self.dialog_replace = Dialog(self, dialog_dict, _dialog_proc_replace)
+
+        with open(os.path.join(APP_DIR, 'resources', LANG, 'Dialog14.json'), 'rb') as f:
+            dialog_dict = json.loads(f.read())
+
+        def _dialog_proc_goto(hwnd, msg, wparam, lparam):
+            if msg == WM_INITDIALOG:
+                hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_GOTO)
+                line_idx = user32.SendMessageW(self.edit.hwnd, EM_LINEFROMCHAR, -1, 0)
+                user32.SendMessageW(hwnd_edit, WM_SETTEXT, 0,
+                        create_unicode_buffer(str(line_idx + 1)))
+                user32.SendMessageW(hwnd_edit, EM_SETSEL, 0, -1)
+
+            elif msg == WM_COMMAND:
+                control_id = LOWORD(wparam)
+                command = HIWORD(wparam)
+                if command == BN_CLICKED:
+                    if control_id == ID_FIND_NEXT:
+                        hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_GOTO)
+                        text_len = user32.SendMessageW(hwnd_edit, WM_GETTEXTLENGTH, 0, 0) + 1
+                        if text_len > 1:
+                            text_buf = create_unicode_buffer(text_len)
+                            user32.SendMessageW(hwnd_edit, WM_GETTEXT, text_len, text_buf)
+                            user32.EndDialog(hwnd, int(text_buf.value))
+                        else:
+                            user32.EndDialog(hwnd, 0)
+                    elif control_id == ID_CANCEL:
+                        user32.EndDialog(hwnd, 0)
+
+            return FALSE
+
+        self.dialog_goto = Dialog(self, dialog_dict, _dialog_proc_goto)
+
+    ########################################
+    #
+    ########################################
+    def _create_edit(self):
+        self.edit = Edit(
+                self,
+                style=WS_VISIBLE | WS_CHILD | ES_MULTILINE | WS_TABSTOP | WS_VSCROLL |
+                ES_AUTOVSCROLL | ES_NOHIDESEL | (0 if self._word_wrap else WS_HSCROLL)
+                )
+        self.edit.set_font(*self._font)
+        user32.SendMessageW(self.edit.hwnd, EM_SETLIMITTEXT, EDIT_MAX_TEXT_LEN, 0)
+
+        def _on_WM_KEYUP(hwnd, wparam, lparam):
+            self._check_caret_pos()
+            self._check_if_text_selected()
+        self.edit.register_message_callback(WM_KEYUP, _on_WM_KEYUP)
+
+        def _on_WM_MOUSEMOVE(hwnd, wparam, lparam):
+            if wparam & MK_LBUTTON:
+                pos = user32.SendMessageW(self.edit.hwnd, EM_CHARFROMPOS, 0, lparam)
+                if pos > -1:
+                    char_idx, line_idx = LOWORD(pos), HIWORD(pos)
+                    line_char_idx = user32.SendMessageW(self.edit.hwnd, EM_LINEINDEX, -1, 0)
+                    self._show_caret_pos(line_idx, char_idx - line_char_idx)
+        self.edit.register_message_callback(WM_MOUSEMOVE, _on_WM_MOUSEMOVE)
+
+        def _on_WM_LBUTTONUP(hwnd, wparam, lparam):
+            self._check_caret_pos()
+            self._check_if_text_selected()
+        self.edit.register_message_callback(WM_LBUTTONUP, _on_WM_LBUTTONUP)
+
+    ########################################
+    #
+    ########################################
+    def _create_statusbar(self):
+        self.statusbar = StatusBar(self, parts=(0, 140, 50, 120, 120), parts_right_aligned=True)
+        self._show_caret_pos()
+        self.statusbar.set_text('100%', STATUSBAR_PART_ZOOM)
+
+        buf = create_unicode_buffer(24)
+        user32.GetMenuStringW(self.hmenu, self._eol_mode_id, buf, 24, MF_BYCOMMAND)
+        self.statusbar.set_text(buf.value, STATUSBAR_PART_EOL)
+
+        user32.GetMenuStringW(self.hmenu, self._encoding_id, buf, 24, MF_BYCOMMAND)
+        self.statusbar.set_text(buf.value, STATUSBAR_PART_ENCODING)
+
+        if self._show_statusbar:
+            user32.CheckMenuItem(self.hmenu, IDM_STATUS_BAR, MF_BYCOMMAND | MF_CHECKED)
+        else:
+            self.statusbar.show(SW_HIDE)
 
     ########################################
     # Load saved state from registry
@@ -319,37 +511,6 @@ class App(MainWin):
             advapi32.RegSetValueExW(hkey, 'iWindowPosDY', 0, REG_DWORD, byref(DWORD(rc.bottom - rc.top)), dwsize)
 
             advapi32.RegCloseKey(hkey)
-
-    ########################################
-    #
-    ########################################
-    def _create_edit(self):
-        self.edit = Edit(
-                self,
-                style=WS_VISIBLE | WS_CHILD | ES_MULTILINE | WS_TABSTOP | WS_VSCROLL |
-                ES_AUTOVSCROLL | ES_NOHIDESEL | (0 if self._word_wrap else WS_HSCROLL)
-                )
-        self.edit.set_font(*self._font)
-        user32.SendMessageW(self.edit.hwnd, EM_SETLIMITTEXT, EDIT_MAX_TEXT_LEN, 0)
-
-        def _on_WM_KEYUP(hwnd, wparam, lparam):
-            self._check_caret_pos()
-            self._check_if_text_selected()
-        self.edit.register_message_callback(WM_KEYUP, _on_WM_KEYUP)
-
-        def _on_WM_MOUSEMOVE(hwnd, wparam, lparam):
-            if wparam & MK_LBUTTON:
-                pos = user32.SendMessageW(self.edit.hwnd, EM_CHARFROMPOS, 0, lparam)
-                if pos > -1:
-                    char_idx, line_idx = LOWORD(pos), HIWORD(pos)
-                    line_char_idx = user32.SendMessageW(self.edit.hwnd, EM_LINEINDEX, -1, 0)
-                    self._show_caret_pos(line_idx, char_idx - line_char_idx)
-        self.edit.register_message_callback(WM_MOUSEMOVE, _on_WM_MOUSEMOVE)
-
-        def _on_WM_LBUTTONUP(hwnd, wparam, lparam):
-            self._check_caret_pos()
-            self._check_if_text_selected()
-        self.edit.register_message_callback(WM_LBUTTONUP, _on_WM_LBUTTONUP)
 
     ########################################
     #
@@ -776,77 +937,12 @@ class App(MainWin):
     #
     ########################################
     def action_find(self):
-        if self._has_dialog_find:
+        if self.dialog_find.hwnd:
+            user32.SetActiveWindow(self.dialog_find.hwnd)
             return
-        elif self._has_dialog_replace:
-            self.close_dialog_async()
-            self._has_dialog_replace = False
-
-        def _dialog_proc_callback(hwnd, msg, wparam, lparam):
-
-            if msg == WM_INITDIALOG:
-                hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
-
-                # Limit search input to 127 chars
-                user32.SendMessageW(hwnd_edit, EM_SETLIMITTEXT, 127, 0)
-
-                # check if something is selected
-                pos_start, pos_end = DWORD(), DWORD()
-                user32.SendMessageW(self.edit.hwnd, EM_GETSEL, byref(pos_start), byref(pos_end))
-                if pos_end.value > pos_start.value:
-                    text_len = user32.SendMessageW(self.edit.hwnd, WM_GETTEXTLENGTH, 0, 0) + 1
-                    text_buf = create_unicode_buffer(text_len)
-                    user32.SendMessageW(self.edit.hwnd, WM_GETTEXT, text_len, text_buf)
-                    self._search_term = text_buf.value[pos_start.value:pos_end.value][:127]
-                elif self._search_term == '':
-                    self._search_term = self._saved_search_term
-
-                # update button states
-                if self._search_term:
-                    user32.SendMessageW(hwnd_edit, WM_SETTEXT, 0, create_unicode_buffer(self._search_term))
-                else:
-                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), 0)
-                if self._search_up:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_UP), BM_SETCHECK, BST_CHECKED, 0)
-                else:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_DOWN), BM_SETCHECK, BST_CHECKED, 0)
-                if self._match_case:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_SETCHECK, BST_CHECKED, 0)
-                if self._wrap_arround:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_SETCHECK, BST_CHECKED, 0)
-
-            elif msg == WM_COMMAND:
-                control_id = LOWORD(wparam)
-                command = HIWORD(wparam)
-
-                if control_id == ID_EDIT_FIND:
-                    if command == EN_UPDATE:
-                        text_len = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_EDIT_FIND), WM_GETTEXTLENGTH, 0, 0)
-                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), int(text_len > 0))
-
-                elif command == BN_CLICKED:
-                    if control_id == ID_FIND_NEXT:
-                        self._match_case = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_GETCHECK, 0, 0)
-                        self._wrap_arround = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_GETCHECK, 0, 0)
-                        self._search_up = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_UP), BM_GETCHECK, 0, 0)
-                        hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
-                        text_len = user32.SendMessageW(hwnd_edit, WM_GETTEXTLENGTH, 0, 0) + 1
-                        text_buf = create_unicode_buffer(text_len)
-                        user32.SendMessageW(hwnd_edit, WM_GETTEXT, text_len, text_buf)
-                        self._search_term = text_buf.value
-                        self._find()
-
-                    elif control_id == ID_CANCEL:
-                        user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
-
-            elif msg == WM_CLOSE:
-                self._has_dialog_find = False
-                user32.SetFocus(self.edit.hwnd)
-
-            return FALSE
-
-        self.show_dialog_async(self._dlg_data_find, _dialog_proc_callback)
-        self._has_dialog_find = True
+        elif self.dialog_replace.hwnd:
+            user32.SendMessageW(self.dialog_replace.hwnd, WM_CLOSE, 0, 0)
+        self.dialog_show_async(self.dialog_find)
 
     ########################################
     #
@@ -868,122 +964,18 @@ class App(MainWin):
     #
     ########################################
     def action_replace(self):
-        if self._has_dialog_replace:
+        if self.dialog_replace.hwnd:
+            user32.SetActiveWindow(self.dialog_replace.hwnd)
             return
-        elif self._has_dialog_find:
-            self.close_dialog_async()
-            self._has_dialog_find = False
-
-        def _dialog_proc_callback(hwnd, msg, wparam, lparam):
-            if msg == WM_INITDIALOG:
-                # Limit search and replace input to 127 chars
-                hwnd_search_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
-                user32.SendMessageW(hwnd_search_edit, EM_SETLIMITTEXT, 127, 0)
-
-                hwnd_replace_edit = user32.GetDlgItem(hwnd, ID_EDIT_REPLACE)
-                user32.SendMessageW(hwnd_replace_edit, EM_SETLIMITTEXT, 127, 0)
-
-                # check if something is selected
-                pos_start, pos_end = DWORD(), DWORD()
-                user32.SendMessageW(self.edit.hwnd, EM_GETSEL, byref(pos_start), byref(pos_end))
-                if pos_end.value > pos_start.value:
-                    text_len = user32.SendMessageW(self.edit.hwnd, WM_GETTEXTLENGTH, 0, 0) + 1
-                    text_buf = create_unicode_buffer(text_len)
-                    user32.SendMessageW(self.edit.hwnd, WM_GETTEXT, text_len, text_buf)
-                    self._search_term = text_buf.value[pos_start.value:pos_end.value][:127]
-                # update button states
-                if self._search_term:
-                    user32.SendMessageW(hwnd_search_edit, WM_SETTEXT, 0, create_unicode_buffer(self._search_term))
-                else:
-                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), 0)
-                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE), 0)
-                    user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE_ALL), 0)
-                if self._replace_term:
-                    user32.SendMessageW(hwnd_replace_edit, WM_SETTEXT, 0, create_unicode_buffer(self._search_term))
-                if self._match_case:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_SETCHECK, BST_CHECKED, 0)
-                if self._wrap_arround:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_SETCHECK, BST_CHECKED, 0)
-
-            elif msg == WM_COMMAND:
-                control_id = LOWORD(wparam)
-                command = HIWORD(wparam)
-
-                if control_id == ID_EDIT_FIND:
-                    if command == EN_UPDATE:
-                        text_len = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_EDIT_FIND), WM_GETTEXTLENGTH, 0, 0)
-                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_FIND_NEXT), int(text_len > 0))
-                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE), int(text_len > 0))
-                        user32.EnableWindow(user32.GetDlgItem(hwnd, ID_REPLACE_ALL), int(text_len > 0))
-
-                elif command == BN_CLICKED:
-                    if control_id in (ID_FIND_NEXT, ID_REPLACE, ID_REPLACE_ALL):
-                        self._match_case = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_MATCH_CASE), BM_GETCHECK, 0, 0)
-                        self._wrap_arround = user32.SendMessageW(user32.GetDlgItem(hwnd, ID_WRAP_AROUND), BM_GETCHECK, 0, 0)
-
-                        hwnd_search_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
-                        text_len = user32.SendMessageW(hwnd_search_edit, WM_GETTEXTLENGTH, 0, 0) + 1
-                        text_buf = create_unicode_buffer(text_len)
-                        user32.SendMessageW(hwnd_search_edit, WM_GETTEXT, text_len, text_buf)
-                        self._search_term = text_buf.value
-
-                        hwnd_replace_edit = user32.GetDlgItem(hwnd, ID_EDIT_REPLACE)
-                        text_len = user32.SendMessageW(hwnd_replace_edit, WM_GETTEXTLENGTH, 0, 0) + 1
-                        text_buf = create_unicode_buffer(text_len)
-                        user32.SendMessageW(hwnd_replace_edit, WM_GETTEXT, text_len, text_buf)
-                        self._replace_term = text_buf.value
-
-                        if control_id == ID_FIND_NEXT:
-                            self._find()
-                        elif control_id == ID_REPLACE:
-                            self._replace()
-                        elif control_id == ID_REPLACE_ALL:
-                            self._replace_all()
-
-                    elif control_id == ID_CANCEL:
-                        user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
-
-            elif msg == WM_CLOSE:
-                self._has_dialog_replace = False
-                user32.SetFocus(self.edit.hwnd)
-
-            return FALSE
-
-        self.show_dialog_async(self._dlg_data_replace, _dialog_proc_callback)
-        self._has_dialog_replace = True
+        elif self.dialog_find.hwnd:
+            user32.SendMessageW(self.dialog_find.hwnd, WM_CLOSE, 0, 0)
+        self.dialog_show_async(self.dialog_replace)
 
     ########################################
     #
     ########################################
     def action_go_to(self):
-        def _dialog_proc_callback(hwnd, msg, wparam, lparam):
-            if msg == WM_INITDIALOG:
-                hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_GOTO)
-                line_idx = user32.SendMessageW(self.edit.hwnd, EM_LINEFROMCHAR, -1, 0)
-                user32.SendMessageW(hwnd_edit, WM_SETTEXT, 0,
-                        create_unicode_buffer(str(line_idx + 1)))
-                user32.SendMessageW(hwnd_edit, EM_SETSEL, 0, -1)
-
-            elif msg == WM_COMMAND:
-                control_id = LOWORD(wparam)
-                command = HIWORD(wparam)
-                if command == BN_CLICKED:
-                    if control_id == ID_FIND_NEXT:
-                        hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_GOTO)
-                        text_len = user32.SendMessageW(hwnd_edit, WM_GETTEXTLENGTH, 0, 0) + 1
-                        if text_len > 1:
-                            text_buf = create_unicode_buffer(text_len)
-                            user32.SendMessageW(hwnd_edit, WM_GETTEXT, text_len, text_buf)
-                            user32.EndDialog(hwnd, int(text_buf.value))
-                        else:
-                            user32.EndDialog(hwnd, 0)
-                    elif control_id == ID_CANCEL:
-                        user32.EndDialog(hwnd, 0)
-
-            return FALSE
-
-        line_goto = self.show_dialog_sync(self._dlg_data_goto, _dialog_proc_callback)
-
+        line_goto = self.dialog_show_sync(self.dialog_goto)
         if line_goto > 0:
             total_lines = user32.SendMessageW(self.edit.hwnd, EM_GETLINECOUNT, 0, 0)
             if line_goto > total_lines:

@@ -31,8 +31,8 @@ MENU_BG_BRUSH_HOT = gdi32.CreateSolidBrush(0x3e3e3e)
 BG_BRUSH_BLACK = gdi32.CreateSolidBrush(0x000000)
 
 # For testing stuff
-#COLOR_YELLOW = 0x00ffff
-#BRUSH_YELLOW = gdi32.CreateSolidBrush(COLOR_YELLOW)
+COLOR_YELLOW = 0x00ffff
+BRUSH_YELLOW = gdi32.CreateSolidBrush(COLOR_YELLOW)
 
 class PreferredAppMode():
     Default = 0

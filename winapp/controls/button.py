@@ -153,7 +153,7 @@ class Button(Window):
     #
     ########################################
     def __init__(self, parent_window, style=WS_CHILD | WS_VISIBLE, ex_style=0,
-            left=0, top=0, width=0, height=0, window_title=0, wrap_hwnd=None):
+            left=0, top=0, width=94, height=23, window_title='OK', wrap_hwnd=None):
 
         super().__init__(
             WC_BUTTON,

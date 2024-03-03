@@ -10,7 +10,6 @@ from winapp.window import *
 from winapp.menu import *
 from winapp.themes import *
 from winapp.dialog import *
-from winapp.controls.button import *
 
 VKEY_NAME_MAP = {
     'Del': VK_DELETE,
@@ -44,10 +43,8 @@ class MainWin(Window):
         self.__timers = {}
         self.__timer_id_counter = 1000
         self.__die = False
-        # For asnyc dialog (only one at a time supported)
-        self.__hwnd_dialog = None
-        self.__dialogproc = None
-        self.__dialog_children = []
+        # For asnyc dialogs
+        self.__current_dialogs = []
 
         def _on_WM_TIMER(hwnd, wparam, lparam):
             if wparam in self.__timers:
@@ -172,12 +169,17 @@ class MainWin(Window):
         while not self.__die and user32.GetMessageW(byref(msg), 0, 0, 0) != 0:
 
             # unfortunately this disables global accelerators while a dialog is shown
-            if self.__hwnd_dialog and user32.IsDialogMessageW(self.__hwnd_dialog, byref(msg)):
-                continue
+            for dialog in self.__current_dialogs:
+                if user32.IsDialogMessageW(dialog.hwnd, byref(msg)):
+                    break
 
-            if not user32.TranslateAcceleratorW(self.hwnd, self.__haccel, byref(msg)):
-                user32.TranslateMessage(byref(msg))
-                user32.DispatchMessageW(byref(msg))
+            # If the inner loop completes without encountering
+            # the break statement then the following else
+            # block will be executed and outer loop will continue
+            else:
+                if not user32.TranslateAcceleratorW(self.hwnd, self.__haccel, byref(msg)):
+                    user32.TranslateMessage(byref(msg))
+                    user32.DispatchMessageW(byref(msg))
 
         if self.__haccel:
             user32.DestroyAcceleratorTable(self.__haccel)
@@ -197,15 +199,11 @@ class MainWin(Window):
 
         user32.SetClassLongPtrW(self.hwnd, GCL_HBRBACKGROUND, BG_BRUSH_DARK if is_dark else self.bg_brush_light)
 
-        # Updating existing dialog is too complicate, so trigger decent close
-        if self.__hwnd_dialog:
-            user32.PostMessageW(self.__hwnd_dialog, WM_CLOSE, 0, 0)
-
         if self.__has_app_menus:
             # Update colors of menus
             uxtheme.SetPreferredAppMode(PreferredAppMode.ForceDark if is_dark else PreferredAppMode.ForceLight)
             uxtheme.FlushMenuThemes()
-            self.redraw_window()
+#            self.redraw_window()
 
             # Update colors of menubar
             if is_dark:
@@ -272,73 +270,20 @@ class MainWin(Window):
                 self.unregister_message_callback(WM_NCPAINT)
                 self.unregister_message_callback(WM_NCACTIVATE)
 
-    def load_dialog_data(self, data):
-        dialog = DialogData()
-        for control in data['controls']:
-            dialog.add_control(
-                    eval(control['class']),
-                    control['caption'],
-                    *control['rect'],
-                    control_id=control['id'],
-                    style=control['style']
-                    )
-        dlg_data = dialog.create(
-                *data['rect'],
-                data['caption'],
-                *data['font'],
-                False,
-                style=data['style'],
-                exstyle=data['exstyle'] if 'exstyle' in data else 0
-                )
-        return (c_ubyte * len(dlg_data))(*dlg_data)
+        self.redraw_window()
 
-    def show_dialog_async(self, dlg_data, dialog_proc_callback):
+    def dialog_show_async(self, dialog):
+        self.__current_dialogs.append(dialog)
+        dialog._show_async()
 
-        def _dialog_proc_callback(hwnd, msg, wparam, lparam):
-            if self.is_dark:
-                res = self.__dialog_handle_dark(hwnd, msg, wparam, lparam)
-                if res is not None:
-                    return res
-            if msg == WM_CLOSE:
-                self.close_dialog_async()
-            return dialog_proc_callback(hwnd, msg, wparam, lparam)
+    def dialog_show_sync(self, dialog):
+        res = dialog._show_sync()
+        user32.SetActiveWindow(self.hwnd)
+        return res
 
-        self.__dialogproc = WNDPROC(_dialog_proc_callback)
-        self.__hwnd_dialog = user32.CreateDialogIndirectParamW(
-                0,
-                byref(dlg_data),
-                self.hwnd,
-                self.__dialogproc,
-                0
-                )
-        user32.SendMessageW(self.__hwnd_dialog, WM_CHANGEUISTATE, MAKELONG(UIS_CLEAR, UISF_HIDEFOCUS), 0)
-        user32.ShowWindow(self.__hwnd_dialog, SW_SHOW)
-
-    def close_dialog_async(self):
-        user32.DestroyWindow(self.__hwnd_dialog)
-        self.__hwnd_dialog = None
-        self.__dialogproc = None
-        self.__dialog_children = []
-
-    def show_dialog_sync(self, dlg_data, dialog_proc_callback):
-
-        def _dialog_proc_callback(hwnd, msg, wparam, lparam):
-            if self.is_dark:
-                res = self.__dialog_handle_dark(hwnd, msg, wparam, lparam)
-                if res is not None:
-                    return res
-            if msg == WM_CLOSE:
-                 user32.EndDialog(hwnd, 0)
-                 self.__dialog_children = []
-            return dialog_proc_callback(hwnd, msg, wparam, lparam)
-
-        return user32.DialogBoxIndirectParamW(
-                0,
-                byref(dlg_data),
-                self.hwnd,
-                WNDPROC(_dialog_proc_callback),
-                0
-                )
+    def _dialog_remove(self, dialog):
+        if dialog in self.__current_dialogs:
+            self.__current_dialogs.remove(dialog)
 
     def get_open_filename(self, title, default_extension='',
                 filter_string='All Files (*.*)\0*.*\0\0', initial_path=''):
@@ -351,7 +296,7 @@ class MainWin(Window):
         ofn.nMaxFile = MAX_PATH
         ofn.lpstrDefExt = default_extension
         ofn.lpstrFilter = cast(create_unicode_buffer(filter_string), c_wchar_p)
-        ofn.Flags = OFN_ENABLESIZING | OFN_PATHMUSTEXIST #| OFN_EXPLORER # | OFN_ENABLEHOOK
+        ofn.Flags = OFN_ENABLESIZING | OFN_PATHMUSTEXIST
         if comdlg32.GetOpenFileNameW(byref(ofn)):
             return file_buffer[:].split('\0', 1)[0]
         else:
@@ -402,7 +347,7 @@ class MainWin(Window):
         margin_right, margin_bottom = 10, 20
 
         # calulate required height for message text
-        text_height = self.dialog_calculate_text_height(text, text_width, *font)
+        text_height = Dialog.calculate_multiline_text_height(text, text_width, *font)
 
         # if there is an icon and text height is smaller thsn icon height, center text vertically
         if hicon and text_height < 20:
@@ -419,13 +364,13 @@ class MainWin(Window):
         if hicon:
             text_x = 41
             dialog_dict['controls'].append({
-                    'id': 20, 'class': 'STATIC',
+                    'id': 6, 'class': 'STATIC',
                     'caption': '', 'rect': [14, 14, 21, 20],
                     'style': 1342308355, 'exstyle': 4})
 
         # add text
         dialog_dict['controls'].append({
-                'id': 65535, 'class': 'STATIC', 'caption': text,
+                'id': -1, 'class': 'STATIC', 'caption': text,
                 'rect': [text_x, text_y, text_width, text_height],
                 'style': 1342316672, 'exstyle': 4})
 
@@ -441,45 +386,18 @@ class MainWin(Window):
             })
             x += button_width + button_dist
 
-        dlg_data = self.load_dialog_data(dialog_dict)
-
         def _dialog_proc_callback(hwnd, msg, wparam, lparam):
             if msg == WM_INITDIALOG:
                 if hicon:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, 20), STM_SETICON, hicon, 0)
-                if self.is_dark:
-                    dwm_use_dark_mode(hwnd, True)
-                    for btn_id in btn_ids:
-                        uxtheme.SetWindowTheme(user32.GetDlgItem(hwnd, btn_id), 'DarkMode_Explorer', None)
-                user32.SetFocus(hwnd)
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, 6), STM_SETICON, hicon, 0)
             elif msg == WM_COMMAND:
                 control_id = LOWORD(wparam)
                 command = HIWORD(wparam)
                 if command == BN_CLICKED:
                     user32.EndDialog(hwnd, control_id)
-            elif msg == WM_CLOSE:
-                user32.EndDialog(hwnd, 0)
-            elif self.is_dark:
-                if msg == WM_CTLCOLORDLG or msg == WM_CTLCOLORSTATIC:
-                    hdc = wparam
-                    gdi32.SetTextColor(hdc, TEXT_COLOR_DARK)
-                    gdi32.SetBkColor(hdc, BG_COLOR_DARK)
-                    return BG_BRUSH_DARK
-                elif msg == WM_CTLCOLORBTN:
-                    gdi32.SetDCBrushColor(wparam, BG_COLOR_DARK)
-                    return gdi32.GetStockObject(DC_BRUSH)
             return FALSE
 
-        res = user32.DialogBoxIndirectParamW(
-                0,
-                byref(dlg_data),
-                self.hwnd,
-                WNDPROC(_dialog_proc_callback),
-                0
-                )
-
-        user32.SetActiveWindow(self.hwnd)
-        return IDCANCEL if res == 0 else res
+        return self.dialog_show_sync(Dialog(self, dialog_dict, _dialog_proc_callback))
 
     def show_font_dialog(self, font_name, font_size, font_weight=FW_DONTCARE, font_italic=False):
         lf = LOGFONTW(
@@ -498,114 +416,6 @@ class MainWin(Window):
                     kernel32.MulDiv(-lf.lfHeight, 72, DPI_Y) if lf.lfHeight < 0 else lf.lfHeight,
                     lf.lfWeight,
                     lf.lfItalic)
-
-    # logical coordinates, not pixels
-    def dialog_calculate_text_height(self, text, text_width, font_name='MS Shell Dlg', font_size=8):
-        hdc = user32.GetDC(0)
-        hfont = gdi32.CreateFontW(font_size, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-                CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
-        gdi32.SelectObject(hdc, hfont)
-        rc = RECT(0, 0, text_width, 0)
-        user32.DrawTextW(hdc, text, -1, byref(rc), DT_CALCRECT | DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX)
-        user32.ReleaseDC(0, hdc)
-        return rc.bottom
-
-    def __dialog_handle_dark(self, hwnd_dialog, msg, wparam, lparam):
-        if msg == WM_INITDIALOG:
-            dwm_use_dark_mode(hwnd_dialog, True)
-
-            controls = []
-            def _enum_child_func(hwnd, lparam):
-                controls.append(hwnd)
-                return TRUE
-
-            EnumWindowsProc = WINFUNCTYPE(BOOL, HWND, LPARAM)
-            user32.EnumChildWindows(hwnd_dialog, EnumWindowsProc(_enum_child_func), 0)
-
-            hfont = user32.SendMessageW(hwnd_dialog, WM_GETFONT, 0, 0)
-
-            for hwnd in controls:
-                buf = create_unicode_buffer(32)
-                user32.GetClassNameW(hwnd, buf, 32)
-                window_class = buf.value
-
-                if window_class == 'Button':
-                    uxtheme.SetWindowTheme(hwnd, 'DarkMode_Explorer', None)
-
-                    style = user32.GetWindowLongPtrA(hwnd, GWL_STYLE)
-
-                    if style & BS_TYPEMASK == BS_AUTOCHECKBOX or style & BS_TYPEMASK == BS_AUTORADIOBUTTON:
-                        rc = RECT()
-                        user32.GetClientRect(hwnd, byref(rc))
-
-                        buf = create_unicode_buffer(64)
-                        user32.GetWindowTextW(hwnd, buf, 64)
-                        window_title = buf.value.replace('&', '')
-                        user32.SetWindowTextW(hwnd, window_title)
-
-                        window_checkbox = Window('Button', wrap_hwnd=hwnd)
-                        self.__dialog_children.append(window_checkbox)  # prevent garbage collection while dialog exists
-                        hwnd_static = user32.CreateWindowExW(
-                                WS_EX_TRANSPARENT,
-                                WC_STATIC,
-                                window_title,
-                                WS_CHILD | SS_SIMPLE | WS_VISIBLE,
-                                16, 3,
-                                rc.right - 16, rc.bottom,
-                                window_checkbox.hwnd,
-                                0, 0, 0)
-                        user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
-
-                        def _on_WM_CTLCOLORSTATIC(hwnd, wparam, lparam):
-                            gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
-                            gdi32.SetBkMode(wparam, TRANSPARENT)
-                            return gdi32.GetStockObject(DC_BRUSH)
-                        window_checkbox.register_message_callback(WM_CTLCOLORSTATIC, _on_WM_CTLCOLORSTATIC)
-
-                    elif style & BS_TYPEMASK == BS_GROUPBOX:
-                        rc = RECT()
-                        user32.GetWindowRect(hwnd, byref(rc))
-                        user32.ScreenToClient(hwnd_dialog, byref(rc))
-
-                        buf = create_unicode_buffer(64)
-                        user32.GetWindowTextW(hwnd, buf, 64)
-                        window_title = buf.value
-
-                        hwnd_static = user32.CreateWindowExW(
-                                WS_EX_TRANSPARENT,
-                                WC_STATIC,
-                                window_title,
-                                WS_CHILD | SS_SIMPLE | WS_VISIBLE,
-                                rc.left + 10, rc.top,
-                                rc.right - rc.left - 16, rc.bottom - rc.top,
-                                hwnd_dialog,
-                                0, 0, 0
-                                )
-                        user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
-
-                elif window_class == 'Edit':
-                    user32.SetWindowLongPtrA(hwnd, GWL_EXSTYLE,
-                            user32.GetWindowLongPtrA(hwnd, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE)
-                    user32.SetWindowLongPtrA(hwnd, GWL_STYLE,
-                            user32.GetWindowLongPtrA(hwnd, GWL_STYLE) | WS_BORDER)
-                    user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
-                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
-
-        elif msg == WM_CTLCOLORDLG or msg == WM_CTLCOLORSTATIC:
-            hdc = wparam
-            gdi32.SetTextColor(hdc, TEXT_COLOR_DARK)
-            gdi32.SetBkColor(hdc, BG_COLOR_DARK)
-            return BG_BRUSH_DARK
-
-        elif msg == WM_CTLCOLORBTN:
-            gdi32.SetDCBrushColor(wparam, BG_COLOR_DARK)
-            return gdi32.GetStockObject(DC_BRUSH)
-
-        elif msg == WM_CTLCOLOREDIT:
-            gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
-            gdi32.SetBkColor(wparam, CONTROL_COLOR_DARK)
-            gdi32.SetDCBrushColor(wparam, CONTROL_COLOR_DARK)
-            return gdi32.GetStockObject(DC_BRUSH)
 
     @staticmethod
     def __handle_menu_items(hmenu, menu_items, accels=None, key_mod_translation=None):
@@ -652,10 +462,3 @@ class MainWin(Window):
                         accels.append((fVirt, vk, id))
                     row['caption'] = '\t'.join(parts)
                 user32.AppendMenuW(hmenu, flags, id, row['caption'])
-
-
-if __name__ == "__main__":
-    import sys
-    app = MainWin(window_title='Hello World!')
-    app.show()
-    sys.exit(app.run())
