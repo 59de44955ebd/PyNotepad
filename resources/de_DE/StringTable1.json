@@ -14,5 +14,6 @@
     "Open": "Öffnen",
     "Found next from the bottom": "Nächster Treffer von unten",
 	"Found next from the top": "Nächster Treffer von oben",
-	"Goto Line": "Gehe zu Zeile"
+	"Goto Line": "Gehe zu Zeile",
+	"FILE_TOO_BIG": "Diese Datei ist zu groß!"
 }

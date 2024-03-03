@@ -585,7 +585,7 @@ class App(MainWin):
         if b'\n' in data and not b'\r' in data:
             return IDM_EOL_LF
         if b'\r' in data and not b'\n' in data:
-            return IDM_EOL_LF
+            return IDM_EOL_CR
         return IDM_EOL_CRLF
 
     ########################################
@@ -669,14 +669,24 @@ class App(MainWin):
     #
     ########################################
     def _load_file(self, filename):
+        if os.stat(filename).st_size > EDIT_MAX_TEXT_LEN:
+            return self.show_message_box(_('FILE_TOO_BIG'), APP_NAME, MB_ICONWARNING | MB_OK)
         with open(filename, 'rb') as f:
             data = f.read()
         self._show_caret_pos()
         buf = create_unicode_buffer(24)
-        self._eol_mode_id = self._detect_eol(data)
+        eol_mode_id = self._detect_eol(data)
+        if eol_mode_id != self._eol_mode_id:
+            user32.CheckMenuItem(self.hmenu, self._eol_mode_id, MF_BYCOMMAND | MF_UNCHECKED)
+            self._eol_mode_id = eol_mode_id
+            user32.CheckMenuItem(self.hmenu, self._eol_mode_id, MF_BYCOMMAND | MF_CHECKED)
         user32.GetMenuStringW(self.hmenu, self._eol_mode_id, buf, 24, MF_BYCOMMAND)
         self.statusbar.set_text(buf.value, STATUSBAR_PART_EOL)
-        self._encoding_id = self._detect_encoding(data)
+        encoding_id = self._detect_encoding(data)
+        if encoding_id != self._encoding_id:
+            user32.CheckMenuItem(self.hmenu, self._encoding_id, MF_BYCOMMAND | MF_UNCHECKED)
+            self._encoding_id = encoding_id
+            user32.CheckMenuItem(self.hmenu, self._encoding_id, MF_BYCOMMAND | MF_CHECKED)
         user32.GetMenuStringW(self.hmenu, self._encoding_id, buf, 24, MF_BYCOMMAND)
         self.statusbar.set_text(buf.value, STATUSBAR_PART_ENCODING)
         if self._eol_mode_id != IDM_EOL_CRLF:

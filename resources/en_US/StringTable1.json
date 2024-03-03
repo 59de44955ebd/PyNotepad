@@ -4,5 +4,6 @@
 	"CANNOT_FIND": "Cannot find \"{}\"",
 	"GOTO_BEYOND": "The line number is beyond the total number of lines",
 	"LINE_COLUMN": "Ln {}, Col {}",
-	"SAVE_CHANGES": "Do you want to save changes to {}?"
+	"SAVE_CHANGES": "Do you want to save changes to {}?",
+	"FILE_TOO_BIG": "This file is too big!"
 }
