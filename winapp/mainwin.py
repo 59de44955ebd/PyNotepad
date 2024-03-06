@@ -32,8 +32,7 @@ class MainWin(Window):
             menu_data=None,
             menu_mod_translation_table=None,
             accelerators=None,
-            cursor=None,
-            ):
+            cursor=None):
 
         self.hicon = hicon
 
@@ -57,9 +56,9 @@ class MainWin(Window):
             return 0
 
         self.__message_map = {
-            WM_TIMER:        [_on_WM_TIMER],
-            WM_CLOSE:        [self.quit],
-        }
+                WM_TIMER:        [_on_WM_TIMER],
+                WM_CLOSE:        [self.quit],
+                }
 
         def _window_proc_callback(hwnd, msg, wparam, lparam):
             if msg in self.__message_map:
@@ -98,13 +97,12 @@ class MainWin(Window):
         user32.RegisterClassExW(byref(newclass))
 
         super().__init__(
-            newclass.lpszClassName,
-            style=style,
-            ex_style=ex_style,
-            left=left, top=top, width=width, height=height,
-            window_title=window_title,
-            hmenu=self.hmenu
-        )
+                newclass.lpszClassName,
+                style=style,
+                ex_style=ex_style,
+                left=left, top=top, width=width, height=height,
+                window_title=window_title,
+                hmenu=self.hmenu)
 
         if accelerators:
             accels += accelerators
@@ -320,6 +318,7 @@ class MainWin(Window):
             return None
 
     def show_message_box(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK):
+
 #        if not self.is_dark:
 #            return user32.MessageBoxW(self.hwnd, text, caption, utype)
 
@@ -357,8 +356,7 @@ class MainWin(Window):
 
         dialog_dict = {'class': '#32770', 'caption': caption, 'font': font,
                 'rect': [0, 0, dialog_width, dialog_height],
-                'style': 2496137669, 'exstyle': 65793, 'controls': []
-                }
+                'style': 2496137669, 'exstyle': 65793, 'controls': []}
 
         # add icon
         if hicon:
@@ -378,12 +376,11 @@ class MainWin(Window):
         x = dialog_width - margin_right - len(btn_ids) * button_width - (len(btn_ids) - 1) * button_dist
         for i in range(len(btn_ids)):
             dialog_dict['controls'].append({
-                'id': btn_ids[i], 'class': 'BUTTON',
-                'caption': user32.MB_GetString(btn_ids[i] - 1),
-                'rect': [x, dialog_height - margin_bottom, button_width, button_height],
-                'style': WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_TEXT | (BS_DEFPUSHBUTTON if i == 0 else BS_PUSHBUTTON),
-                'exstyle': 4
-            })
+                    'id': btn_ids[i], 'class': 'BUTTON',
+                    'caption': user32.MB_GetString(btn_ids[i] - 1),
+                    'rect': [x, dialog_height - margin_bottom, button_width, button_height],
+                    'style': WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_TEXT | (BS_DEFPUSHBUTTON if i == 0 else BS_PUSHBUTTON),
+                    'exstyle': 4})
             x += button_width + button_dist
 
         def _dialog_proc_callback(hwnd, msg, wparam, lparam):
