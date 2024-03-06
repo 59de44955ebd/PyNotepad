@@ -24,3 +24,4 @@ PyNotepad.exe
 
 # Environments
 .env
+/nsis/uninstall_list.nsh
