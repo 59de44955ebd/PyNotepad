@@ -134,6 +134,7 @@ Button_GetState = lambda hwndCtl:            user32.SendMessageW(hwndCtl, BM_GET
 Button_SetState = lambda hwndCtl, state:     user32.SendMessageW(hwndCtl, BM_SETSTATE, state, 0)
 Button_SetStyle = lambda hwndCtl, style, fRedraw: user32.SendMessageW(hwndCtl, BM_SETSTYLE, style, MAKELPARAM(fRedraw, 0))
 
+
 ########################################
 # Button Control Structures
 ########################################
@@ -143,6 +144,7 @@ class BUTTON_IMAGELIST(Structure):
         ("margin", RECT),
         ("uAlign", UINT),
     ]
+
 
 ########################################
 # Wrapper Class

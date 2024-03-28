@@ -1,5 +1,6 @@
-from ctypes import c_uint64, c_ulong, c_long, c_longlong, c_int, c_int64, WINFUNCTYPE, CFUNCTYPE, Structure
-from ctypes.wintypes import HANDLE, HWND, LPARAM, WPARAM, LONG, WORD, DWORD, LPCWSTR, LPWSTR, UINT, BOOL, HMODULE, BYTE
+from ctypes import c_uint64, c_ulong, c_long, c_longlong, c_int, c_int64, WINFUNCTYPE, CFUNCTYPE, Structure, POINTER
+from ctypes.wintypes import HANDLE, HWND, LPARAM, WPARAM, LONG, WORD, DWORD, LPCWSTR, LPWSTR, LPSTR, INT, UINT, BOOL, HMODULE, BYTE, WCHAR, LPVOID
+from winapp.const import LF_FACESIZE
 
 import sys
 is_64_bit = sys.maxsize > 2**32
@@ -14,6 +15,40 @@ WNDPROC = WINFUNCTYPE(LONG_PTR, HWND, UINT, WPARAM, LPARAM)
 WNDENUMPROC = WINFUNCTYPE(BOOL, HWND, LPARAM)
 WINEVENTPROCTYPE = WINFUNCTYPE(None, HANDLE, DWORD, HWND, LONG, LONG, DWORD, DWORD)
 ENUMRESNAMEPROCW = CFUNCTYPE(BOOL, HMODULE, LPCWSTR, LPWSTR, LONG_PTR)
+
+
+class LOGFONTW(Structure):
+    _fields_ = [
+        # C:/PROGRA~1/MIAF9D~1/VC98/Include/wingdi.h 1090
+        ('lfHeight', LONG),
+        ('lfWidth', LONG),
+        ('lfEscapement', LONG),
+        ('lfOrientation', LONG),
+        ('lfWeight', LONG),
+        ('lfItalic', BYTE),
+        ('lfUnderline', BYTE),
+        ('lfStrikeOut', BYTE),
+        ('lfCharSet', BYTE),
+        ('lfOutPrecision', BYTE),
+        ('lfClipPrecision', BYTE),
+        ('lfQuality', BYTE),
+        ('lfPitchAndFamily', BYTE),
+        ('lfFaceName', WCHAR * LF_FACESIZE),
+    ]
+
+    def __str__(self):
+        return  "('%s' %d)" % (self.lfFaceName, self.lfHeight)
+
+    def __repr__(self):
+        return "<LOGFONTW '%s' %d>" % (self.lfFaceName, self.lfHeight)
+
+#int CALLBACK EnumFontFamExProc(
+#   const LOGFONT    *lpelfe,
+#   const TEXTMETRIC *lpntme,
+#         DWORD      FontType,
+#         LPARAM     lParam
+#);
+FONTENUMPROCW = CFUNCTYPE(INT, POINTER(LOGFONTW), LPVOID, DWORD, LPARAM)
 
 class ACCEL(Structure):
     _fields_ = [
@@ -34,6 +69,9 @@ def LOWORD(l):
 
 def HIWORD(l):
     return WORD((l >> 16) & 0xFFFF).value
+
+def MAKEINTRESOURCEA(x):
+    return LPSTR(x)
 
 def MAKEINTRESOURCEW(x):
     return LPCWSTR(x)

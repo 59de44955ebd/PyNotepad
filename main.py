@@ -128,6 +128,13 @@ class App(MainWin):
         else:
             hicon = user32.LoadImageW(0, os.path.join(APP_DIR, 'app.ico'), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
 
+#        hbitmap = get_thumbnail(r'D:\src\PyNotepad\PyNotepad.exe', SIZE(16, 16))
+#        print(hbitmap)
+#        menu_data['items'][0]['items'][0]['hbitmap'] = hbitmap
+
+#        hicon2 = user32.LoadImageW(0, os.path.join(APP_DIR, 'app.ico'), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+#        menu_data['items'][0]['items'][0]['hbitmap'] = icon_to_bitmap(hicon2)
+
         # create main window
         super().__init__(
                 self._get_caption(),
@@ -1048,6 +1055,8 @@ class App(MainWin):
     #
     ########################################
     def action_zoom_out(self):
+        if self._zoom <= 10:
+            return
         self._zoom -= 10
         font = list(self._font)
         font[1] = int(self._font[1] * self._zoom / 100)

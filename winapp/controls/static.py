@@ -60,6 +60,7 @@ STN_ENABLE          =2
 STN_DISABLE         =3
 STM_MSGMAX          =0x0174
 
+
 ########################################
 # Wrapper Class
 ########################################
@@ -107,9 +108,15 @@ class Static(Window):
             gdi32.SetDCBrushColor(wparam,  BG_COLOR_DARK)
             return gdi32.GetStockObject(DC_BRUSH)
 
+    ########################################
+    #
+    ########################################
     def set_image(self, hbitmap):
         user32.SendMessageW(self.hwnd, STM_SETIMAGE, IMAGE_BITMAP, hbitmap)
 
+    ########################################
+    #
+    ########################################
     def set_icon(self, hicon):
         user32.SendMessageW(self.hwnd, STM_SETICON, hicon, 0)
 

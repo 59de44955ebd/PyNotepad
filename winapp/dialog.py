@@ -1,12 +1,14 @@
 from ctypes import Structure, create_unicode_buffer, c_voidp, windll, cast, byref, sizeof, c_wchar_p, c_ubyte, POINTER
 from ctypes.wintypes import SHORT, WORD, DWORD, HWND, HINSTANCE, LPWSTR, LPCWSTR, LPVOID, HANDLE, INT, WCHAR, BYTE, COLORREF, HDC, UINT, WPARAM, LPARAM, LONG
 from winapp.wintypes_extended import WINFUNCTYPE, UINT_PTR
-from winapp.dlls import shell32
+from winapp.dlls import shell32, comdlg32, gdi32
 from winapp.const import *
 
 from winapp.window import *
 from winapp.themes import *
 from winapp.controls.button import *
+
+DIALOG_CLASS = '#32770'
 
 BUTTON    = 0x0080
 EDIT      = 0x0081
@@ -16,13 +18,13 @@ SCROLLBAR = 0x0084
 COMBOBOX  = 0x0085
 
 BUTTON_COMMAND_IDS = {
-    MB_OK: (IDOK,),
-    MB_OKCANCEL: (IDOK, IDCANCEL),
-    MB_ABORTRETRYIGNORE: (IDABORT, IDRETRY, IDIGNORE),
-    MB_YESNOCANCEL: (IDYES, IDNO, IDCANCEL),
-    MB_YESNO: (IDYES, IDNO),
-    MB_RETRYCANCEL: (IDRETRY, IDCANCEL)
-}
+        MB_OK: (IDOK,),
+        MB_OKCANCEL: (IDOK, IDCANCEL),
+        MB_ABORTRETRYIGNORE: (IDABORT, IDRETRY, IDIGNORE),
+        MB_YESNOCANCEL: (IDYES, IDNO, IDCANCEL),
+        MB_YESNO: (IDYES, IDNO),
+        MB_RETRYCANCEL: (IDRETRY, IDCANCEL)
+        }
 
 class SHSTOCKICONINFO(Structure):
     def __init__(self, *args, **kwargs):
@@ -97,6 +99,10 @@ class OPENFILENAMEW(Structure):
     )
 
 class LOGFONTW(Structure):
+    def __str__(self):
+        return  "('%s' %d)" % (self.lfFaceName, self.lfHeight)
+#    def __repr__(self):
+#        return "<LOGFONTW '%s' %d>" % (self.lfFaceName, self.lfHeight)
     _fields_ = [
         # C:/PROGRA~1/MIAF9D~1/VC98/Include/wingdi.h 1090
         ('lfHeight', LONG),
@@ -115,13 +121,10 @@ class LOGFONTW(Structure):
         ('lfFaceName', WCHAR * LF_FACESIZE),
     ]
 
-    def __str__(self):
-        return  "('%s' %d)" % (self.lfFaceName, self.lfHeight)
-
-    def __repr__(self):
-        return "<LOGFONTW '%s' %d>" % (self.lfFaceName, self.lfHeight)
-
 class CHOOSEFONTW(Structure):
+    def __init__(self, *args, **kwargs):
+        super(CHOOSEFONTW, self).__init__(*args, **kwargs)
+        self.lStructSize = sizeof(self)
     _fields_ = [
         ('lStructSize',                 DWORD),
         ('hwndOwner',                   HWND),
@@ -141,9 +144,94 @@ class CHOOSEFONTW(Structure):
         ('nSizeMax',                    INT),
     ]
 
+class PRINTDLGW(Structure):
     def __init__(self, *args, **kwargs):
-        super(CHOOSEFONTW, self).__init__(*args, **kwargs)
+        super(PRINTDLGW, self).__init__(*args, **kwargs)
         self.lStructSize = sizeof(self)
+    _fields_ = [
+        ('lStructSize',                 DWORD),
+        ('hwndOwner',                   HWND),
+        ('hDevMode',                    HGLOBAL),
+        ('hDevNames',                   HGLOBAL),
+        ('hDC',                         HDC),
+        ('Flags',                       DWORD),
+        ('nFromPage',                   WORD),
+        ('nToPage',                     WORD),
+        ('nMinPage',                    WORD),
+        ('nMaxPage',                    WORD),
+        ('nCopies',                     WORD),
+        ('hInstance',                   HINSTANCE),
+        ('lCustData',                   LPARAM),
+        ('lpfnPrintHook',               LPVOID),  # LPPRINTHOOKPROC
+        ('lpfnSetupHook',               LPVOID),  # LPSETUPHOOKPROC
+        ('lpPrintTemplateName',         LPCWSTR),
+        ('lpSetupTemplateName',         LPCWSTR),
+        ('hPrintTemplate',              HGLOBAL),
+        ('hSetupTemplate',              HGLOBAL),
+    ]
+
+
+LPPRINTDLGW = POINTER(PRINTDLGW)
+
+#PD_ALLPAGES = 0
+#PD_RETURNDC = 0x00000100
+#PD_RETURNDEFAULT = 0x00000400
+
+comdlg32.PrintDlgW.argtypes = (LPPRINTDLGW,)
+
+class DOCINFOW(Structure):
+    def __init__(self, *args, **kwargs):
+        super(DOCINFOW, self).__init__(*args, **kwargs)
+        self.cbSize = sizeof(self)
+    _fields_ = [
+        ('cbSize', INT),
+        ('lpszDocName', LPCWSTR),
+        ('lpszOutput', LPCWSTR),
+        ('lpszDatatype', LPCWSTR),
+        ('fwType', DWORD),
+    ]
+
+
+#int StartDocW(
+#  [in] HDC            hdc,
+#  [in] const DOCINFOW *lpdi
+#);
+gdi32.StartDocW.argtypes = (HDC, POINTER(DOCINFOW))
+#int EndDoc(
+#  [in] HDC hdc
+#);
+gdi32.EndDoc.argtypes = (HDC,)
+gdi32.AbortDoc.argtypes = (HDC,)
+#int StartPage(
+#  [in] HDC hdc
+#);
+gdi32.StartPage.argtypes = (HDC,)
+gdi32.EndPage.argtypes = (HDC,)
+
+class PAGESETUPDLGW(Structure):
+    def __init__(self, *args, **kwargs):
+        super(PAGESETUPDLGW, self).__init__(*args, **kwargs)
+        self.lStructSize = sizeof(self)
+    _fields_ = [
+        ('lStructSize',                 DWORD),
+        ('hwndOwner',                   HWND),
+        ('hDevMode',                    HGLOBAL),
+        ('hDevNames',                   HGLOBAL),
+        ('Flags',                       DWORD),
+        ('ptPaperSize',                 POINT),
+        ('rtMinMargin',                 RECT),
+        ('rtMargin',                    RECT),
+        ('hInstance',                   HINSTANCE),
+        ('lCustData',                   LPARAM),
+        ('lpfnPageSetupHook',           LPVOID),  # LPPAGESETUPHOOK
+        ('lpfnPagePaintHook',           LPVOID),  # LPPAGEPAINTHOOK
+        ('lpPageSetupTemplateName',     LPCWSTR),
+        ('hPageSetupTemplate',          HGLOBAL),
+    ]
+
+LPPAGESETUPDLGW = POINTER(PAGESETUPDLGW)
+
+comdlg32.PageSetupDlgW.argtypes = (LPPAGESETUPDLGW,)
 
 # modern icon (flat)
 def get_stock_icon(siid):
@@ -151,7 +239,6 @@ def get_stock_icon(siid):
     SHGSI_ICON = 0x000000100
     shell32.SHGetStockIconInfo(siid, SHGSI_ICON, byref(sii))
     return sii.hIcon
-
 
 class DialogTemplate(object):
 
@@ -199,8 +286,7 @@ class DialogTemplate(object):
                 style,
                 self.__num_controls,
                 x, y, w, h,
-                0,  # menu, 0x0000 for none
-                #0,  # windowClass, 0x0000 for none
+                0,
                 )
         dlg_data = bytes(dlg_data)
         dlg_data += bytes(WORD(0))
@@ -220,7 +306,7 @@ class Dialog(Window):
 
     def __init__(self, parent_window, dialog_dict, dialog_proc_callback):
 
-        super().__init__('#32770', parent_window=parent_window, wrap_hwnd=0)
+        super().__init__(DIALOG_CLASS, parent_window=parent_window, wrap_hwnd=0)
 
         dialog = DialogTemplate()
         for control in dialog_dict['controls']:
@@ -329,12 +415,32 @@ class Dialog(Window):
                             user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
 
                     elif window_class == 'Edit' and self.is_dark:
+                        # check parent
+                        user32.GetClassNameW(user32.GetParent(hwnd_control), buf, 32)
+                        if buf.value != 'ComboBox':
+                            user32.SetWindowLongPtrA(hwnd_control, GWL_EXSTYLE,
+                                    user32.GetWindowLongPtrA(hwnd_control, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE)
+                            user32.SetWindowLongPtrA(hwnd_control, GWL_STYLE,
+                                    user32.GetWindowLongPtrA(hwnd_control, GWL_STYLE) | WS_BORDER)
+                            rc = RECT()
+                            user32.GetWindowRect(hwnd_control, byref(rc))
+                            w, h = rc.right - rc.left, rc.bottom - rc.top
+                            user32.SendMessageW(hwnd_control, EM_SETMARGINS, EC_LEFTMARGIN, 2)
+                            user32.MapWindowPoints(None, user32.GetParent(hwnd_control), byref(rc), 1)
+                            user32.SetWindowPos(hwnd_control, 0, rc.left, rc.top + 2, w, h - 4, SWP_FRAMECHANGED)
+
+                    elif window_class == 'ComboLBox' and self.is_dark:
+                        uxtheme.SetWindowTheme(hwnd_control, 'DarkMode_CFD', None)
+
                         user32.SetWindowLongPtrA(hwnd_control, GWL_EXSTYLE,
                                 user32.GetWindowLongPtrA(hwnd_control, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE)
                         user32.SetWindowLongPtrA(hwnd_control, GWL_STYLE,
                                 user32.GetWindowLongPtrA(hwnd_control, GWL_STYLE) | WS_BORDER)
                         user32.SetWindowPos(hwnd_control, 0, 0, 0, 0, 0,
                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+
+                    elif window_class == 'ComboBox' and self.is_dark:
+                        uxtheme.SetWindowTheme(hwnd_control, 'DarkMode_CFD', None)
 
             elif msg == WM_THEMECHANGED:
                 dwm_use_dark_mode(hwnd, self.is_dark)
@@ -369,7 +475,7 @@ class Dialog(Window):
                     gdi32.SetDCBrushColor(wparam, BG_COLOR_DARK)
                     return gdi32.GetStockObject(DC_BRUSH)
 
-                elif msg == WM_CTLCOLOREDIT:
+                elif msg == WM_CTLCOLOREDIT or msg == WM_CTLCOLORLISTBOX:
                     gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
                     gdi32.SetBkColor(wparam, CONTROL_COLOR_DARK)
                     gdi32.SetDCBrushColor(wparam, CONTROL_COLOR_DARK)
@@ -414,7 +520,6 @@ class Dialog(Window):
                 self.__dialogproc,
                 1
                 )
-        #user32.SendMessageW(self.hwnd, WM_CHANGEUISTATE, MAKELONG(UIS_CLEAR, UISF_HIDEFOCUS), 0)
         user32.ShowWindow(self.hwnd, SW_SHOW)
 
     def _show_sync(self, is_dark=False):

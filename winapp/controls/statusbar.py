@@ -62,7 +62,7 @@ class StatusBar(Window):
             parent_window=None,
             style=WS_CHILD | WS_VISIBLE,
             ex_style=0, window_title=0,
-            parts=None,
+            parts=[],
             parts_right_aligned=False):
 
         self.parts = parts
@@ -140,7 +140,6 @@ class StatusBar(Window):
                     user32.SendMessageW(self.hwnd, SB_GETRECT, i, byref(rc_part))
                     if ps.rcPaint.left >= rc_part.right or ps.rcPaint.right < rc_part.left:
                         continue
-                    #print('Updating part:', i)
 
                     # Draw text
                     text_len = user32.SendMessageW(self.hwnd, SB_GETTEXTLENGTHW, i, 0) + 1

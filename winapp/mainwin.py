@@ -11,10 +11,12 @@ from winapp.menu import *
 from winapp.themes import *
 from winapp.dialog import *
 
+
 VKEY_NAME_MAP = {
     'Del': VK_DELETE,
     'Plus': VK_OEM_PLUS,
     'Minus': VK_OEM_MINUS,
+    'Enter': VK_RETURN,
 }
 
 
@@ -70,12 +72,13 @@ class MainWin(Window):
 
         self.windowproc = WNDPROC(_window_proc_callback)
 
-        if hbrush is None:
-            hbrush = COLOR_WINDOW + 1
-        elif type(color) == int:
+        if type(color) == int:
             hbrush = color + 1
         elif type(color) == COLORREF:
             hbrush = gdi32.CreateSolidBrush(color)
+        elif hbrush is None:
+            hbrush = COLOR_WINDOW + 1
+
         self.bg_brush_light = hbrush
 
         newclass = WNDCLASSEX()
@@ -317,12 +320,13 @@ class MainWin(Window):
         else:
             return None
 
-    def show_message_box(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK):
+    def show_message_box(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK, dialog_width=None):
 
 #        if not self.is_dark:
 #            return user32.MessageBoxW(self.hwnd, text, caption, utype)
 
-        font = ['MS Shell Dlg', 8]  # ["Segoe UI", 8]
+        font = ['MS Shell Dlg', 8]
+#        font = ['Segoe UI', -11]
 
         if utype & MB_ICONINFORMATION:
             hicon = get_stock_icon(SIID_INFO)
@@ -337,7 +341,8 @@ class MainWin(Window):
 
         btn_ids = BUTTON_COMMAND_IDS[utype & 0xf]
 
-        dialog_width = 222 if hicon else (219 if len(btn_ids) > 2 else 189)  # 219 => 197
+        if dialog_width is None:
+            dialog_width = 222 if hicon else (219 if len(btn_ids) > 2 else 189)  # 219 => 197
         dialog_min_height = 74 if hicon else 62
 
         text_width = dialog_width - 60 if hicon else dialog_width - 27
@@ -406,13 +411,13 @@ class MainWin(Window):
         cf = CHOOSEFONTW(
                 hwndOwner = self.hwnd,
                 lpLogFont = pointer(lf),
-                Flags = CF_INITTOLOGFONTSTRUCT)
+                Flags = CF_INITTOLOGFONTSTRUCT | CF_NOSCRIPTSEL)
         if comdlg32.ChooseFontW(byref(cf)):
-            return (
+            return [
                     lf.lfFaceName,
                     kernel32.MulDiv(-lf.lfHeight, 72, DPI_Y) if lf.lfHeight < 0 else lf.lfHeight,
                     lf.lfWeight,
-                    lf.lfItalic)
+                    lf.lfItalic]
 
     @staticmethod
     def __handle_menu_items(hmenu, menu_items, accels=None, key_mod_translation=None):
@@ -420,6 +425,12 @@ class MainWin(Window):
             if 'items' in row:
                 hmenu_child = user32.CreateMenu()
                 user32.AppendMenuW(hmenu, MF_POPUP, hmenu_child, row['caption'])
+                if 'hbitmap' in row:
+                    info = MENUITEMINFOW()
+                    ok = user32.GetMenuItemInfoW(hmenu, hmenu_child, FALSE, byref(info))
+                    info.fMask = MIIM_BITMAP
+                    info.hbmpItem = row['hbitmap']
+                    user32.SetMenuItemInfoW(hmenu, hmenu_child, FALSE, byref(info))
                 MainWin.__handle_menu_items(hmenu_child, row['items'], accels, key_mod_translation)
             else:
                 if row['caption'] == '-':
@@ -451,11 +462,23 @@ class MainWin(Window):
                         vk = vk.replace('Shift+', '')
                         if key_mod_translation and 'SHIFT' in key_mod_translation:
                             parts[1] = parts[1].replace('Shift', key_mod_translation['SHIFT'])
+
                     if len(vk) > 1:
+                        if key_mod_translation and vk.upper() in key_mod_translation:
+                            parts[1] = parts[1].replace(vk, key_mod_translation[vk.upper()])
                         vk = VKEY_NAME_MAP[vk] if vk in VKEY_NAME_MAP else eval('VK_' + vk)
                     else:
                         vk = ord(vk)
+
                     if accels is not None:
                         accels.append((fVirt, vk, id))
+
                     row['caption'] = '\t'.join(parts)
                 user32.AppendMenuW(hmenu, flags, id, row['caption'])
+
+                if 'hbitmap' in row:
+                    info = MENUITEMINFOW()
+                    ok = user32.GetMenuItemInfoW(hmenu, id, FALSE, byref(info))
+                    info.fMask = MIIM_BITMAP
+                    info.hbmpItem = row['hbitmap']
+                    user32.SetMenuItemInfoW(hmenu, id, FALSE, byref(info))

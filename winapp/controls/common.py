@@ -5,6 +5,7 @@ from winapp.wintypes_extended import UINT_PTR, ULONG_PTR, DWORD_PTR
 
 
 class NMHDR(Structure):
+    _pack_ = 8
     _fields_ = [
         ("hwndFrom", HWND),
         ("idFrom", UINT_PTR),
@@ -89,15 +90,10 @@ CDIS_DEFAULT           =0x0020
 CDIS_HOT               =0x0040
 CDIS_MARKED            =0x0080
 CDIS_INDETERMINATE     =0x0100
-
-#if (NTDDI_VERSION >= NTDDI_WINXP)
-#define CDIS_SHOWKEYBOARDCUES   0x0200
-#endif
-#if (NTDDI_VERSION >= NTDDI_VISTA)
-#define CDIS_NEARHOT            0x0400
-#define CDIS_OTHERSIDEHOT       0x0800
-#define CDIS_DROPHILITED        0x1000
-#endif
+CDIS_SHOWKEYBOARDCUES   =0x0200
+CDIS_NEARHOT            =0x0400
+CDIS_OTHERSIDEHOT       =0x0800
+CDIS_DROPHILITED        =0x1000
 
 # Toolbar custom draw return flags
 TBCDRF_NOEDGES             =0x00010000  # Don't draw button edges

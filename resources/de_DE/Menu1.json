@@ -180,15 +180,15 @@
                     "caption": "&Zoom",
                     "items": [
                         {
-                            "caption": "&Vergrößern\tCtrl+Plus",
+                            "caption": "&Vergrößern\tAlt+Plus",
                             "id": 34
                         },
                         {
-                            "caption": "Ver&kleinern\tCtrl+Minus",
+                            "caption": "Ver&kleinern\tAlt+Minus",
                             "id": 35
                         },
                         {
-                            "caption": "Standardansicht wiederherstellen\tCtrl+0",
+                            "caption": "Standardansicht wiederherstellen\tAlt+0",
                             "id": 36
                         }
                     ]
