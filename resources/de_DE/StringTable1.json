@@ -1,6 +1,6 @@
 {
 	"ABOUT_CAPTION": "Über {}",
-	"ABOUT_TEXT": "{} v0.{}\n(c) {}\n\nEin in Python geschriebener MS Notepad-Klon,\nbasierend auf nativen Win32 controls und ctypes.",
+	"ABOUT_TEXT": "{} v0.{}\n(c) {}\n\nEin in Python geschriebener MS Notepad-Klon,\nbasierend auf nativen Windows controls und ctypes/libffi",
 	"CANNOT_FIND": "\"{}\" kann nicht gefunden werden.",
 	"GOTO_BEYOND": "Die Zeilennummer ist größer als die Gesamtanzahl der Zeilen",
 	"LINE_COLUMN": "Zeile {}, Spalte {}",
