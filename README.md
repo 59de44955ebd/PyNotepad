@@ -1,5 +1,5 @@
 # PyNotepad
-A clone of Windows Notepad written in pure Python (no third-party modules), based on native Win32 controls and ctypes (Petzold style).
+A clone of Windows Notepad written in pure Python (no third-party modules), based on native Windows controls and ctypes/libffi
 
 ## Differences to original Notepad
 
