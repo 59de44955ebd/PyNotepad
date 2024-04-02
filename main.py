@@ -128,13 +128,6 @@ class App(MainWin):
         else:
             hicon = user32.LoadImageW(0, os.path.join(APP_DIR, 'app.ico'), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
 
-#        hbitmap = get_thumbnail(r'D:\src\PyNotepad\PyNotepad.exe', SIZE(16, 16))
-#        print(hbitmap)
-#        menu_data['items'][0]['items'][0]['hbitmap'] = hbitmap
-
-#        hicon2 = user32.LoadImageW(0, os.path.join(APP_DIR, 'app.ico'), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
-#        menu_data['items'][0]['items'][0]['hbitmap'] = icon_to_bitmap(hicon2)
-
         # create main window
         super().__init__(
                 self._get_caption(),
@@ -154,7 +147,7 @@ class App(MainWin):
 
         def _on_WM_SIZE(hwnd, wparam, lparam):
             width, height = lparam & 0xFFFF, (lparam >> 16) & 0xFFFF
-            self.statusbar.update_size()  # Reposition and resize the statusbar
+            self.statusbar.update_size()  # reposition and resize the statusbar
             self.statusbar.right_align_parts(width)  # keep statusbar parts right aligned
             user32.SetWindowPos(self.edit.hwnd, 0, 0, 0, width,
                     height - self.statusbar.height if self._show_statusbar else height, 0)
@@ -211,7 +204,7 @@ class App(MainWin):
             if msg == WM_INITDIALOG:
                 hwnd_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
 
-                # Limit search input to 127 chars
+                # limit search input to 127 chars
                 user32.SendMessageW(hwnd_edit, EM_SETLIMITTEXT, 127, 0)
 
                 # check if something is selected
@@ -275,7 +268,7 @@ class App(MainWin):
 
         def _dialog_proc_replace(hwnd, msg, wparam, lparam):
             if msg == WM_INITDIALOG:
-                # Limit search and replace input to 127 chars
+                # limit search and replace input to 127 chars
                 hwnd_search_edit = user32.GetDlgItem(hwnd, ID_EDIT_FIND)
                 user32.SendMessageW(hwnd_search_edit, EM_SETLIMITTEXT, 127, 0)
 
@@ -497,7 +490,6 @@ class App(MainWin):
             advapi32.RegSetValueExW(hkey, 'iPointSize', 0, REG_DWORD, byref(DWORD(self._font[1])), dwsize)
             advapi32.RegSetValueExW(hkey, 'lfWeight', 0, REG_DWORD, byref(DWORD(int(self._font[2]))), dwsize)
             advapi32.RegSetValueExW(hkey, 'lfItalic', 0, REG_DWORD, byref(DWORD(int(self._font[3]))), dwsize)
-
             advapi32.RegSetValueExW(hkey, 'fWrap', 0, REG_DWORD, byref(DWORD(int(self._word_wrap))), dwsize)
             # search
             buf = create_unicode_buffer(self._saved_search_term)
@@ -645,13 +637,13 @@ class App(MainWin):
     		elif o & 248 == 240 and o < 245:
     		    n = 3
     		else:
-    		    return False # invalid UTF-8 sequence
+    		    return False  # invalid UTF-8 sequence
     		for c in range(n):
     			i += 1
     			if i > data_len:
-    			    return False # invalid UTF-8 sequence
+    			    return False  # invalid UTF-8 sequence
     			if data[i] & 192 != 128:
-    			    return False # invalid UTF-8 sequence
+    			    return False  # invalid UTF-8 sequence
     	return True
 
     ########################################
