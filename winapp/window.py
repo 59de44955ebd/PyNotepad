@@ -1,13 +1,14 @@
-from ctypes import windll, Structure, sizeof, c_int, c_uint, byref, c_voidp
+from ctypes import windll, Structure, sizeof, c_int, c_uint, byref, c_voidp, create_unicode_buffer
 from ctypes.wintypes import LPCWSTR, HANDLE, RECT, POINT, HINSTANCE, DWORD, INT, HWND, HMENU, LPVOID
 
-from winapp.const import *
-from winapp.wintypes_extended import WNDPROC, MAKELONG, MAKELPARAM
-from winapp.dlls import gdi32, kernel32, user32, uxtheme
-from winapp.controls.common import *
-from winapp.themes import *
+from .const import *
+from .wintypes_extended import WNDPROC, WNDENUMPROC, MAKELONG, MAKELPARAM
+from .dlls import gdi32, kernel32, user32, uxtheme
+from .controls.common import *
+from .themes import *
 
 hdc = user32.GetDC(0)
+DPI_X = gdi32.GetDeviceCaps(hdc, LOGPIXELSX)
 DPI_Y = gdi32.GetDeviceCaps(hdc, LOGPIXELSY)
 user32.ReleaseDC(0, hdc)
 
@@ -29,7 +30,7 @@ class WNDCLASSEX(Structure):
         ("lpszMenuName", LPCWSTR),
         ("lpszClassName", LPCWSTR),
         ("hIconSm", HANDLE)
-        ]
+    ]
 
 class MINMAXINFO(Structure):
     _fields_ = [
@@ -38,71 +39,80 @@ class MINMAXINFO(Structure):
         ("ptMaxPosition", POINT),
         ("ptMinTrackSize", POINT),
         ("ptMaxTrackSize", POINT),
-        ]
+    ]
 
 
 class Window(object):
 
-    def __init__(self, window_class, style=WS_CHILD | WS_VISIBLE, ex_style=0,
+    def __init__(self, window_class='', style=WS_CHILD | WS_VISIBLE, ex_style=0,
             left=0, top=0, width=0, height=0, window_title=0, hmenu=0, parent_window=None, wrap_hwnd=None):
+
+        self._listeners = {}
 
         self.parent_window = parent_window
         self.children = []
         if parent_window:
             parent_window.children.append(self)
         self.is_dark = False
+        self.visible = style & WS_VISIBLE
 
         self.__old_proc = None
         self.__new_proc = None
-        self.__message_map = {}
+        self._message_map = {}
 
         if wrap_hwnd is not None:
             self.hwnd = wrap_hwnd
         else:
             self.hwnd = user32.CreateWindowExW(
-                    ex_style,
-                    window_class,
-                    window_title,
-                    style,
-                    left, top,
-                    width, height,
-                    parent_window.hwnd if parent_window else 0,
-                    hmenu,
-                    0,  # hInstance
-                    0   # lpParam
-                    )
+                ex_style,
+                window_class,
+                window_title,
+                style,
+                left, top,
+                width, height,
+                parent_window.hwnd if parent_window else 0,
+                hmenu,
+                0,  # hInstance
+                0   # lpParam
+            )
 
     def destroy_window(self):
         if self.__old_proc:
             user32.SetWindowLongPtrW(self.hwnd, GWL_WNDPROC, self.__old_proc)
-            self.__message_map = {}
+            self._message_map = {}
             self.__old_proc = None
         user32.DestroyWindow(self.hwnd)
 
     def window_proc_callback(self, hwnd, msg, wparam, lparam):
-        if msg in self.__message_map:
-            for callback in self.__message_map[msg]:
+        if msg in self._message_map:
+            for callback in self._message_map[msg]:
                 res = callback(hwnd, wparam, lparam)
                 if res is not None:
                     return res
         return self.__old_proc(hwnd, msg, wparam, lparam)
 
     def register_message_callback(self, msg, callback):
-        if msg not in self.__message_map:
-            self.__message_map[msg] = []
-        self.__message_map[msg].append(callback)
+        if msg not in self._message_map:
+            self._message_map[msg] = []
+        self._message_map[msg].append(callback)
         if self.__new_proc is None:
             self.__new_proc = WNDPROC(self.window_proc_callback)
             self.__old_proc = user32.SetWindowLongPtrW(self.hwnd, GWL_WNDPROC, self.__new_proc)
+            self.old_proc = self.__old_proc
 
     def unregister_message_callback(self, msg, callback=None):
-        if msg in self.__message_map:
+        if msg in self._message_map:
             if callback is None:
-                del self.__message_map[msg]
-            elif callback in self.__message_map[msg]:
-                self.__message_map[msg].remove(callback)
-                if len(self.__message_map[msg]) == 0:
-                    del self.__message_map[msg]
+                del self._message_map[msg]
+            elif callback in self._message_map[msg]:
+                self._message_map[msg].remove(callback)
+                if len(self._message_map[msg]) == 0:
+                    del self._message_map[msg]
+
+    def get_window_text(self, nMaxCount=255):
+        buf = create_unicode_buffer(nMaxCount)
+        user32.GetWindowTextW(self.hwnd, buf, nMaxCount)
+        return buf.value
 
     def set_window_text(self, txt):
         user32.SetWindowTextW(self.hwnd, txt)
@@ -127,12 +137,13 @@ class Window(object):
 
     def show(self, cmd_show=SW_SHOW):
         user32.ShowWindow(self.hwnd, cmd_show)
+        self.visible = int(cmd_show > 0)
 
     def enable_window(self, flag):
         user32.EnableWindow(self.hwnd, flag)
 
-    def set_window_pos(self, x, y, w, h, hwnd_insert_after=0, flags=0):
-        user32.SetWindowPos(self.hwnd, hwnd_insert_after, x, y, w, h, flags)
+    def set_window_pos(self, x=0, y=0, width=0, height=0, hwnd_insert_after=0, flags=0):
+        user32.SetWindowPos(self.hwnd, hwnd_insert_after, x, y, width, height, flags)
 
     def set_foreground_window(self):
         user32.SetForegroundWindow(self.hwnd)
@@ -150,15 +161,30 @@ class Window(object):
         user32.GetClientRect(self.hwnd, byref(rc))
         return rc
 
+    def send_message(self, msg, wparam=0, lparam=0):
+        return user32.SendMessageW(self.hwnd, msg, wparam, lparam)
+
+    def set_focus(self):
+        user32.SetFocus(self.hwnd)
+
     def set_font(self, font_name='MS Shell Dlg', font_size=8, font_weight=FW_DONTCARE, font_italic=FALSE, hfont=None):
         if not hfont:
             cHeight = -kernel32.MulDiv(font_size, DPI_Y, 72)
             hfont = gdi32.CreateFontW(cHeight, 0, 0, 0, font_weight, font_italic, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-                        CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
+                    CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
         user32.SendMessageW(self.hwnd, WM_SETFONT, hfont, MAKELPARAM(1, 0))
+        self.hfont = hfont
 
     def set_parent(self, win=None):
         user32.SetParent(self.hwnd, win.hwnd if win else 0)
+
+    def get_children(self):
+        children = []
+        def _enum_child_func(hwnd, lparam):
+            children.append(hwnd)
+            return TRUE
+        user32.EnumChildWindows(self.hwnd, WNDENUMPROC(_enum_child_func), 0)
+        return children
 
     def move_window(self, x, y, width, height, repaint=1):
         return user32.MoveWindow(self.hwnd, x, y, width, height, repaint)
@@ -176,3 +202,21 @@ class Window(object):
         self.is_dark = is_dark
         for child in self.children:
             child.apply_theme(is_dark)
+
+    def connect(self, evt, func):
+        if evt not in self._listeners:
+            self._listeners[evt] = []
+        self._listeners[evt].append(func)
+
+    def disconnect(self, evt, func):
+        if evt not in self._listeners:
+            return
+        idx = self._listeners[evt].find(func)
+        if idx <= 0:
+            del self._listeners[evt][idx]
+
+    def emit(self, evt, *args):
+        if evt not in self._listeners:
+            return
+        for func in self._listeners[evt]:
+            func(*args)

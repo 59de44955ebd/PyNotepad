@@ -1,0 +1,64 @@
+{
+    "rect": [
+        0,
+        0,
+        166,
+        60
+    ],
+    "style": -2134376256,
+    "caption": "Gehe zu Zeile",
+    "font": [
+        "MS Shell Dlg",
+        8
+    ],
+    "controls": [
+        {
+            "caption": "&Zeilennummer:",
+            "id": -1,
+            "class": "STATIC",
+            "style": 1342308352,
+            "rect": [
+                7,
+                7,
+                115,
+                8
+            ]
+        },
+        {
+            "caption": "",
+            "id": ID_EDIT_GOTO,
+            "class": "EDIT",
+            "style": 1350639744,
+            "rect": [
+                7,
+                18,
+                151,
+                12
+            ]
+        },
+        {
+            "caption": "Wechseln",
+            "id": ID_OK,
+            "class": "BUTTON",
+            "style": 1342242817,
+            "rect": [
+                55,
+                39,
+                50,
+                14
+            ]
+        },
+        {
+            "caption": "Abbrechen",
+            "id": ID_CANCEL,
+            "class": "BUTTON",
+            "style": 1342242816,
+            "rect": [
+                109,
+                39,
+                50,
+                14
+            ]
+        }
+    ]
+}

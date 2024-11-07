@@ -1,6 +1,6 @@
 from ctypes import windll, c_uint, POINTER, c_int, c_void_p, c_wchar_p, Structure
 from ctypes.wintypes import *
-from winapp.wintypes_extended import WNDPROC, LONG_PTR, ENUMRESNAMEPROCW, ACCEL, FONTENUMPROCW, LOGFONTW
+from .wintypes_extended import WNDPROC, LONG_PTR, ENUMRESNAMEPROCW, ACCEL, FONTENUMPROCW, LOGFONTW, DWORD_PTR
 
 advapi32 = windll.Advapi32
 comctl32 = windll.Comctl32
@@ -39,8 +39,6 @@ advapi32.RegSetValueExW.restype = LSTATUS
 ########################################
 comctl32.ImageList_Add.argtypes = (HANDLE, HBITMAP, HBITMAP)  # HIMAGELIST
 
-comctl32.ImageList_AddIcon.argtypes = (HANDLE, HANDLE)
-
 comctl32.ImageList_BeginDrag.argtypes = (HANDLE, INT, INT, INT)
 comctl32.ImageList_Create.restype = HANDLE
 
@@ -69,6 +67,9 @@ comctl32.ImageList_Replace.argtypes = (HANDLE, INT, HANDLE, HANDLE)
 
 comctl32.ImageList_ReplaceIcon.argtypes = (HANDLE, INT, HICON)
 
+#comctl32.ImageList_AddIcon.argtypes = (HANDLE, HANDLE)
+comctl32.ImageList_AddIcon = lambda handle, hicon: comctl32.ImageList_ReplaceIcon(handle, -1, hicon)
+
 ########################################
 # gdi32
 ########################################
@@ -90,12 +91,17 @@ gdi32.CreateDIBitmap.restype = HANDLE
 gdi32.CreateFontW.argtypes = (INT, INT, INT, INT, INT, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCWSTR)
 gdi32.CreateFontW.restype = HFONT
 
+gdi32.CreatePatternBrush.argtypes = (HANDLE, )
+gdi32.CreatePatternBrush.restype = HANDLE
+
 gdi32.CreateSolidBrush.argtypes = (COLORREF, )
 gdi32.CreateSolidBrush.restype = HANDLE
 
 gdi32.DeleteDC.argtypes = (HANDLE, )
 
 gdi32.DeleteObject.argtypes = (HANDLE, )
+
+gdi32.DPtoLP.argtypes = (HDC, POINTER(POINT), INT)
 
 #int EnumFontFamiliesExW(
 #  [in] HDC           hdc,
@@ -106,29 +112,33 @@ gdi32.DeleteObject.argtypes = (HANDLE, )
 #);
 gdi32.EnumFontFamiliesExW.argtypes = (HDC, POINTER(LOGFONTW), FONTENUMPROCW, LPARAM, DWORD)
 
-gdi32.ExtTextOutW.argtypes = (HANDLE, INT, INT, UINT, POINTER(RECT), LPCWSTR, UINT, POINTER(INT))
+gdi32.ExtTextOutW.argtypes = (HDC, INT, INT, UINT, POINTER(RECT), LPCWSTR, UINT, POINTER(INT))
+
+gdi32.FillRgn.argtypes = (HDC, HRGN, HBRUSH)
 
 gdi32.GetDIBits.argtypes = (HDC, HBITMAP, UINT, UINT, LPVOID, c_void_p, UINT)
 gdi32.GetDIBits.restype = c_int
 
 gdi32.GetDeviceCaps.argtypes = (HDC, INT)
 
-gdi32.GetObjectW.argtypes = (HANDLE, INT, LPVOID)
+gdi32.GetObjectW.argtypes = (HDC, INT, LPVOID)
 
-gdi32.GetTextMetricsW.argtypes = (HANDLE, LPVOID)
+gdi32.GetTextMetricsW.argtypes = (HDC, LPVOID)
 
 gdi32.MaskBlt.argtypes = (HDC, INT, INT, INT, INT, HDC, INT, INT, HBITMAP, INT, INT, DWORD)
 
-gdi32.SelectObject.argtypes = (HANDLE, HANDLE)
+gdi32.SelectObject.argtypes = (HDC, HANDLE)
 
-gdi32.SetBkColor.argtypes = (HANDLE, COLORREF)
+gdi32.SetBkColor.argtypes = (HDC, COLORREF)
 
-gdi32.SetBkMode.argtypes = (HANDLE, INT)
+gdi32.SetBkMode.argtypes = (HDC, INT)
 
-gdi32.SetDCBrushColor.argtypes = (HANDLE, COLORREF)
-gdi32.SetDCPenColor.argtypes = (HANDLE, COLORREF)
+gdi32.SetDCBrushColor.argtypes = (HDC, COLORREF)
+gdi32.SetDCPenColor.argtypes = (HDC, COLORREF)
 
-gdi32.SetTextColor.argtypes = (HANDLE, COLORREF)
+gdi32.SetMapMode.argtypes = (HDC, INT)
+
+gdi32.SetTextColor.argtypes = (HDC, COLORREF)
 
 gdi32.SetViewportExtEx.argtypes = (HDC, INT, INT, POINTER(SIZE))
 
@@ -168,6 +178,9 @@ kernel32.LoadResource.restype = HANDLE
 kernel32.LockResource.argtypes = (HANDLE, )
 kernel32.LockResource.restype = HANDLE
 
+kernel32.SetThreadExecutionState.argtypes = (UINT,)
+kernel32.SetThreadExecutionState.restype = UINT
+
 kernel32.SizeofResource.argtypes = (HANDLE, HANDLE)
 
 ########################################
@@ -186,16 +199,21 @@ shell32.Shell_NotifyIconW.argtypes = (DWORD, LPVOID)
 shell32.RunFileDlg = shell32[61]
 shell32.RunFileDlg.argtypes = (HWND, HANDLE, LPWSTR, LPWSTR, LPWSTR, UINT)
 
+#HINSTANCE ShellExecuteW(
+#  [in, optional] HWND    hwnd,
+#  [in, optional] LPCWSTR lpOperation,
+#  [in]           LPCWSTR lpFile,
+#  [in, optional] LPCWSTR lpParameters,
+#  [in, optional] LPCWSTR lpDirectory,
+#  [in]           INT     nShowCmd
+#);
+shell32.ShellExecuteW.argtypes = (HWND, LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR, INT)
+shell32.ShellExecuteW.restype = HINSTANCE
+
 shell32.SHGetStockIconInfo.argtypes = (UINT, UINT, LPVOID)  # POINTER(SHSTOCKICONINFO)
 
-#DWORD_PTR SHGetFileInfoW(
-#  [in]      LPCWSTR     pszPath,
-#            DWORD       dwFileAttributes,
-#  [in, out] SHFILEINFOW *psfi,
-#            UINT        cbFileInfo,
-#            UINT        uFlags
-shell32.SHGetFileInfoW.argtypes = (LPCWSTR, DWORD, LPVOID, UINT, UINT)
-shell32.SHGetFileInfoW.restype = POINTER(DWORD) #DWORD_PTR
+shell32.SHGetFileInfoW.argtypes = (LPVOID, DWORD, LPVOID, UINT, UINT)  # first arg LPVOID since both LPCWSTR and PIDL are allowed
+shell32.SHGetFileInfoW.restype = DWORD_PTR  #POINTER(DWORD) #DWORD_PTR
 
 ########################################
 # user32
@@ -217,8 +235,6 @@ user32.CreateIconFromResourceEx.restype = HICON
 
 user32.CreateIconIndirect.argtypes = (HANDLE, )  # POINTER(ICONINFO)
 
-user32.EnableWindow.argytpes = (HWND, BOOL)
-
 user32.DeleteMenu.argtypes = (HMENU, UINT, UINT)
 
 user32.DrawEdge.argtypes = (HDC, POINTER(RECT), UINT, UINT)
@@ -227,14 +243,19 @@ user32.DrawFocusRect.argtypes = (HANDLE, POINTER(RECT))
 
 user32.DrawTextW.argtypes = (HANDLE, LPCWSTR, INT, POINTER(RECT), UINT)
 
+user32.EnableWindow.argytpes = (HWND, BOOL)
+
 user32.FillRect.argtypes = (HANDLE, POINTER(RECT), HBRUSH)
 
+user32.FindWindowW.argtypes = (LPCWSTR, LPCWSTR)
 user32.FindWindowW.restype = HWND
 
 user32.FindWindowExW.argtypes = (HWND, HWND, LPCWSTR, LPCWSTR)
 user32.FindWindowExW.restype = HWND
 
 user32.FrameRect.argtypes = (HDC, POINTER(RECT), HBRUSH)
+
+user32.GetCapture.restype = HWND
 
 user32.GetCaretPos.argtypes = (POINTER(POINT),)
 
@@ -243,7 +264,10 @@ user32.GetClassNameW.argtypes = (HWND, LPWSTR, INT)
 user32.GetClipboardData.restype = HANDLE
 
 user32.GetDC.argtypes = (HANDLE,)
-user32.GetDC.restype = HANDLE
+user32.GetDC.restype = HDC
+
+user32.GetDCEx.argtypes = (HWND, HRGN, DWORD)
+user32.GetDCEx.restype = HDC
 
 user32.GetDesktopWindow.restype = HANDLE
 user32.GetForegroundWindow.restype = HANDLE
@@ -275,9 +299,12 @@ user32.DefWindowProcW.argtypes = (HWND, c_uint, WPARAM, LPARAM)
 
 user32.InvalidateRect.argtypes = (HWND, POINTER(RECT), BOOL)
 
+user32.InvertRect.argtypes = (HDC, POINTER(RECT))
+
 user32.IsDialogMessageW.argtypes = (HWND, POINTER(MSG))
 user32.IsDialogMessageW.restype = BOOL
 
+user32.IsWindowEnabled.argtypes = (HWND, )
 user32.IsWindowVisible.argtypes = (HWND, )
 
 user32.LoadIconW.argtypes = (HINSTANCE, LPCWSTR)
@@ -288,6 +315,8 @@ user32.LoadImageW.restype = HANDLE
 
 user32.MapDialogRect.argtypes = (HWND, POINTER(RECT))
 
+user32.MapWindowPoints.argtypes = (HWND, HWND, LPVOID, UINT)
+
 user32.MB_GetString.restype = LPCWSTR
 
 user32.OffsetRect.argtypes = (POINTER(RECT), INT, INT)
@@ -297,12 +326,18 @@ user32.OpenClipboard.argtypes = (HWND,)
 user32.PostMessageW.argtypes = (HWND, UINT, LPVOID, LPVOID)
 user32.PostMessageW.restype = LONG_PTR
 
+user32.PrintWindow.argtypes = (HWND, HDC, UINT)
+
 user32.ReleaseDC.argtypes = (HWND, HANDLE)
+
+user32.SetCapture.argtypes = (HWND,)
 
 user32.SetClassLongPtrW.argtypes = (HWND, INT, LONG_PTR)
 
 user32.SetClipboardData.argtypes = (UINT, HANDLE)
 user32.SetClipboardData.restype = HANDLE
+
+user32.SetMenu.argtypes = (HWND, HMENU)
 
 # LPVOID to allow to send pointers
 user32.SendMessageW.argtypes = (HWND, UINT, LPVOID, LPVOID)

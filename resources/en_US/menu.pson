@@ -1,0 +1,244 @@
+{
+    "items": [
+        {
+            "caption": "&File",
+            "items": [
+                {
+                    "caption": "&New\tCtrl+N",
+                    "id": IDM_NEW
+                },
+                {
+                    "caption": "New &Window\tCtrl+Shift+N",
+                    "id": IDM_NEW_WINDOW
+                },
+                {
+                    "caption": "&Open...\tCtrl+O",
+                    "id": IDM_OPEN
+                },
+                {
+                    "caption": "&Save\tCtrl+S",
+                    "id": IDM_SAVE
+                },
+                {
+                    "caption": "Save &As...\tCtrl+Shift+S",
+                    "id": IDM_SAVE_AS
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "Encoding",
+                    "items": [
+                        {
+                            "caption": "ANSI",
+                            "id": IDM_ANSI
+                        },
+                        {
+                            "caption": "UTF-16 LE",
+                            "id": IDM_UTF_16_LE
+                        },
+                        {
+                            "caption": "UTF-16 BE",
+                            "id": IDM_UTF_16_BE
+                        },
+                        {
+                            "caption": "UTF-8",
+                            "id": IDM_UTF_8,
+                            "flags": "CHECKED"
+                        },
+                        {
+                            "caption": "UTF-8 with BOM",
+                            "id": IDM_UTF_8_BOM
+                        }
+                    ]
+                },
+                {
+                    "caption": "EOL Mode",
+                    "items": [
+                        {
+                            "caption": "Windows (CRLF)",
+                            "id": IDM_EOL_CRLF,
+                            "flags": "CHECKED"
+                        },
+                        {
+                            "caption": "Unix (LF)",
+                            "id": IDM_EOL_LF
+                        },
+                        {
+                            "caption": "Macintosh (CR)",
+                            "id": IDM_EOL_CR
+                        }
+                    ]
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "Page S&etup...",
+                    "id": IDM_PAGE_SETUP
+                },
+                {
+                    "caption": "&Print...\tCtrl+P",
+                    "id": IDM_PRINT
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "E&xit",
+                    "id": IDM_EXIT
+                }
+            ]
+        },
+        {
+            "caption": "&Edit",
+            "items": [
+                {
+                    "caption": "&Undo\tCtrl+Z",
+                    "id": IDM_UNDO
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "Cu&t\tCtrl+X",
+                    "id": IDM_CUT,
+                    "flags": "GRAYED"
+                },
+                {
+                    "caption": "&Copy\tCtrl+C",
+                    "id": IDM_COPY,
+                    "flags": "GRAYED"
+                },
+                {
+                    "caption": "&Paste\tCtrl+V",
+                    "id": IDM_PASTE
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "&Find...\tCtrl+F",
+                    "id": IDM_FIND,
+                    "flags": "GRAYED"
+                },
+                {
+                    "caption": "Find &Next\tF3",
+                    "id": IDM_FIND_NEXT,
+                    "flags": "GRAYED"
+                },
+                {
+                    "caption": "Find Pre&vious\tShift+F3",
+                    "id": IDM_FIND_PREVIOUS,
+                    "flags": "GRAYED"
+                },
+                {
+                    "caption": "&Replace...\tCtrl+H",
+                    "id": IDM_REPLACE,
+                    "flags": "GRAYED"
+                },
+                {
+                    "caption": "&Go To...\tCtrl+G",
+                    "id": IDM_GO_TO
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "Select &All\tCtrl+A",
+                    "id": IDM_SELECT_ALL
+                },
+                {
+                    "caption": "Time/&Date\tF5",
+                    "id": IDM_TIME_DATE
+                }
+            ]
+        },
+        {
+            "caption": "F&ormat",
+            "items": [
+                {
+                    "caption": "&Word Wrap",
+                    "id": IDM_WORD_WRAP
+                },
+                {
+                    "caption": "Spaces instead of &Tabs",
+                    "id": IDM_TABS_AS_SPACES
+                },
+                {
+                    "caption": "Tab &Size",
+                    "items": [
+                        {
+                            "caption": "&2",
+                            "id": IDM_TAB_SIZE_2
+                        },
+                        {
+                            "caption": "&4",
+                            "id": IDM_TAB_SIZE_4
+                        },
+                        {
+                            "caption": "&8",
+                            "id": IDM_TAB_SIZE_8
+                        }
+                    ]
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "&Font...",
+                    "id": IDM_FONT
+                }
+            ]
+        },
+        {
+            "caption": "&View",
+            "items": [
+                {
+                    "caption": "&Zoom",
+                    "items": [
+                        {
+                            "caption": "Zoom &In\tAlt+Plus",
+                            "id": IDM_ZOOM_IN
+                        },
+                        {
+                            "caption": "Zoom &Out\tAlt+Minus",
+                            "id": IDM_ZOOM_OUT
+                        },
+                        {
+                            "caption": "&Restore Default Zoom\tAlt+0",
+                            "id": IDM_ZOOM_RESET
+                        }
+                    ]
+                },
+                {
+                    "caption": "&Status Bar",
+                    "id": IDM_STATUS_BAR
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "&Dark Mode",
+                    "id": IDM_DARK_MODE
+                }
+            ]
+        },
+        {
+            "caption": "&Help",
+            "items": [
+                {
+                    "caption": "&About PyNotepad",
+                    "id": IDM_ABOUT_NOTEPAD
+                },
+                {
+                    "caption": "-"
+                },
+                {
+                    "caption": "About &Windows",
+                    "id": IDM_ABOUT_WINDOWS
+                }
+            ]
+        }
+    ]
+}

@@ -1,12 +1,17 @@
-from ctypes import Structure, create_unicode_buffer, c_voidp, windll, cast, byref, sizeof, c_wchar_p, c_ubyte, POINTER
-from ctypes.wintypes import SHORT, WORD, DWORD, HWND, HINSTANCE, LPWSTR, LPCWSTR, LPVOID, HANDLE, INT, WCHAR, BYTE, COLORREF, HDC, UINT, WPARAM, LPARAM, LONG
-from winapp.wintypes_extended import WINFUNCTYPE, UINT_PTR
-from winapp.dlls import shell32, comdlg32, gdi32
-from winapp.const import *
+from ctypes import (Structure, create_unicode_buffer, c_voidp, windll, cast, byref, sizeof,
+        c_wchar_p, c_ubyte, POINTER)
+from ctypes.wintypes import (SHORT, WORD, DWORD, HWND, HINSTANCE, LPWSTR, LPCWSTR, LPVOID,
+        HANDLE, INT, WCHAR, BYTE, COLORREF, HDC, UINT, WPARAM, LPARAM, LONG, HGLOBAL)
+from .wintypes_extended import WINFUNCTYPE, UINT_PTR
+from .dlls import shell32, comdlg32, gdi32
+from .const import *
 
-from winapp.window import *
-from winapp.themes import *
-from winapp.controls.button import *
+from .window import *
+from .themes import *
+from .controls.button import *
+from .controls.edit import *
+from .controls.static import *
+
 
 DIALOG_CLASS = '#32770'
 
@@ -18,13 +23,13 @@ SCROLLBAR = 0x0084
 COMBOBOX  = 0x0085
 
 BUTTON_COMMAND_IDS = {
-        MB_OK: (IDOK,),
-        MB_OKCANCEL: (IDOK, IDCANCEL),
-        MB_ABORTRETRYIGNORE: (IDABORT, IDRETRY, IDIGNORE),
-        MB_YESNOCANCEL: (IDYES, IDNO, IDCANCEL),
-        MB_YESNO: (IDYES, IDNO),
-        MB_RETRYCANCEL: (IDRETRY, IDCANCEL)
-        }
+    MB_OK: (IDOK,),
+    MB_OKCANCEL: (IDOK, IDCANCEL),
+    MB_ABORTRETRYIGNORE: (IDABORT, IDRETRY, IDIGNORE),
+    MB_YESNOCANCEL: (IDYES, IDNO, IDCANCEL),
+    MB_YESNO: (IDYES, IDNO),
+    MB_RETRYCANCEL: (IDRETRY, IDCANCEL)
+}
 
 class SHSTOCKICONINFO(Structure):
     def __init__(self, *args, **kwargs):
@@ -169,13 +174,7 @@ class PRINTDLGW(Structure):
         ('hPrintTemplate',              HGLOBAL),
         ('hSetupTemplate',              HGLOBAL),
     ]
-
-
 LPPRINTDLGW = POINTER(PRINTDLGW)
-
-#PD_ALLPAGES = 0
-#PD_RETURNDC = 0x00000100
-#PD_RETURNDEFAULT = 0x00000400
 
 comdlg32.PrintDlgW.argtypes = (LPPRINTDLGW,)
 
@@ -191,20 +190,11 @@ class DOCINFOW(Structure):
         ('fwType', DWORD),
     ]
 
-
-#int StartDocW(
-#  [in] HDC            hdc,
-#  [in] const DOCINFOW *lpdi
-#);
 gdi32.StartDocW.argtypes = (HDC, POINTER(DOCINFOW))
-#int EndDoc(
-#  [in] HDC hdc
-#);
+
 gdi32.EndDoc.argtypes = (HDC,)
 gdi32.AbortDoc.argtypes = (HDC,)
-#int StartPage(
-#  [in] HDC hdc
-#);
+
 gdi32.StartPage.argtypes = (HDC,)
 gdi32.EndPage.argtypes = (HDC,)
 
@@ -233,12 +223,84 @@ LPPAGESETUPDLGW = POINTER(PAGESETUPDLGW)
 
 comdlg32.PageSetupDlgW.argtypes = (LPPAGESETUPDLGW,)
 
+# https://learn.microsoft.com/en-us/windows/win32/api/commdlg/ns-commdlg-choosecolorw
+class CHOOSECOLORW(Structure):
+    def __init__(self, *args, **kwargs):
+        super(CHOOSECOLORW, self).__init__(*args, **kwargs)
+        self.lStructSize = sizeof(self)
+    _fields_ = [
+        ("lStructSize",                 DWORD),
+        ("hwndOwner",                   HWND),
+        ("hInstance",                   HWND),
+        ("rgbResult",                   COLORREF),
+        ("lpCustColors",                POINTER(COLORREF)),
+        ("Flags",                       DWORD),
+        ("lCustData",                   LPARAM),
+        ("lpfnHook",                    LPVOID),  # LPCCHOOKPROC
+        ("lpTemplateName",              LPCWSTR),
+    ]
+
+LPCHOOSECOLORW = POINTER(CHOOSECOLORW)
+
+comdlg32.ChooseColorW.argtypes = (LPCHOOSECOLORW,)
+
 # modern icon (flat)
 def get_stock_icon(siid):
     sii = SHSTOCKICONINFO()
     SHGSI_ICON = 0x000000100
     shell32.SHGetStockIconInfo(siid, SHGSI_ICON, byref(sii))
     return sii.hIcon
+
+def calculate_text_size(text, font_name='MS Shell Dlg', font_size=8, hfont=None):
+    hdc = user32.GetDC(0)
+    no_hfont = hfont is None
+    if no_hfont:
+        hfont = gdi32.CreateFontW(font_size, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
+                CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
+    gdi32.SelectObject(hdc, hfont)
+    rc = RECT(0, 0, 0, 0)
+    user32.DrawTextW(hdc, text, -1, byref(rc), DT_CALCRECT | DT_LEFT | DT_NOPREFIX)
+    user32.ReleaseDC(0, hdc)
+    if no_hfont:
+        gdi32.DeleteObject(hfont)
+    return rc.right, rc.bottom
+
+# logical coordinates, not pixels
+def calculate_multiline_text_height(text, text_width, font_name='MS Shell Dlg', font_size=8, font_weight=FW_NORMAL, font_italic=FALSE, hfont=None):
+    hdc = user32.GetDC(0)
+    no_hfont = hfont is None
+    if no_hfont:
+        hfont = gdi32.CreateFontW(
+            -kernel32.MulDiv(font_size, gdi32.GetDeviceCaps(hdc, LOGPIXELSX), 72),
+            0, 0, 0,
+            font_weight,
+            font_italic,
+            FALSE,
+            FALSE,
+            DEFAULT_CHARSET,
+            OUT_OUTLINE_PRECIS,  #OUT_TT_PRECIS,
+            CLIP_DEFAULT_PRECIS,
+            #CLEARTYPE_QUALITY,
+            DEFAULT_QUALITY,
+            #VARIABLE_PITCH | FF_SWISS,  #
+            DEFAULT_PITCH | FF_DONTCARE,
+            font_name
+        )
+
+    gdi32.SelectObject(hdc, hfont)
+
+    # If the dialog box template has the DS_SETFONT or DS_SHELLFONT style, the base units are the average
+    # width and height, in pixels, of the characters in the font specified by the template.
+    tm = TEXTMETRICW()
+    gdi32.GetTextMetricsW(hdc, byref(tm))
+    text_width  = kernel32.MulDiv(text_width, tm.tmAveCharWidth, 4)
+
+    h = user32.DrawTextW(hdc, text, -1, byref(RECT(0, 0, text_width, 0)), DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX | DT_LEFT | DT_TOP)
+    user32.ReleaseDC(0, hdc)
+    if no_hfont:
+        gdi32.DeleteObject(hfont)
+    return kernel32.MulDiv(h, 8, tm.tmHeight)
+
 
 class DialogTemplate(object):
 
@@ -304,7 +366,7 @@ class DialogTemplate(object):
 
 class Dialog(Window):
 
-    def __init__(self, parent_window, dialog_dict, dialog_proc_callback):
+    def __init__(self, parent_window, dialog_dict, dialog_proc_callback, handle_static=True):
 
         super().__init__(DIALOG_CLASS, parent_window=parent_window, wrap_hwnd=0)
 
@@ -312,23 +374,21 @@ class Dialog(Window):
         for control in dialog_dict['controls']:
             dialog.add_control(
                     eval(control['class']),
-                    control['caption'],
+                    control['caption'] if 'caption' in control else '',
                     *control['rect'],
                     control_id=control['id'],
-                    style=control['style'],
+                    style=control['style'] if 'style' in control else 0,
                     )
         dialog_data = dialog.create(
                 *dialog_dict['rect'],
                 dialog_dict['caption'],
                 *dialog_dict['font'],
                 False,
-                style=dialog_dict['style'],
+                style=dialog_dict['style'] if 'style' in dialog_dict else 0,
                 exstyle=dialog_dict['exstyle'] if 'exstyle' in dialog_dict else 0
                 )
 
         self.__dialog_data = (c_ubyte * len(dialog_data))(*dialog_data)
-        self.__dialog_children = []
-        controls = []
 
         def _dialog_proc_callback(hwnd, msg, wparam, lparam):
 
@@ -336,24 +396,19 @@ class Dialog(Window):
                 if self.__is_async:
                     user32.DestroyWindow(self.hwnd)
                     self.hwnd = None
-                    self.__dialog_children = []
+                    self.children = []
+                    self.controls = []
                     self.parent_window._dialog_remove(self)
                 else:
                     user32.EndDialog(hwnd, 0)
 
             elif msg == WM_INITDIALOG:
                 self.hwnd = hwnd
+
                 dwm_use_dark_mode(hwnd, self.is_dark)
-
-                def _enum_child_func(hwnd, lparam):
-                    controls.append(hwnd)
-                    return TRUE
-                EnumWindowsProc = WINFUNCTYPE(BOOL, HWND, LPARAM)
-                user32.EnumChildWindows(hwnd, EnumWindowsProc(_enum_child_func), 0)
-
                 hfont = user32.SendMessageW(hwnd, WM_GETFONT, 0, 0)
-
-                for hwnd_control in controls:
+                self.controls = self.get_children()
+                for hwnd_control in self.controls:
                     buf = create_unicode_buffer(32)
                     user32.GetClassNameW(hwnd_control, buf, 32)
                     window_class = buf.value
@@ -364,6 +419,7 @@ class Dialog(Window):
                         style = user32.GetWindowLongPtrA(hwnd_control, GWL_STYLE)
 
                         if style & BS_TYPEMASK == BS_AUTOCHECKBOX or style & BS_TYPEMASK == BS_AUTORADIOBUTTON:
+
                             rc = RECT()
                             user32.GetClientRect(hwnd_control, byref(rc))
 
@@ -372,21 +428,15 @@ class Dialog(Window):
                             window_title = buf.value.replace('&', '')
                             user32.SetWindowTextW(hwnd_control, window_title)
 
-                            window_checkbox = Window('Button', wrap_hwnd=hwnd_control)
-                            self.__dialog_children.append(window_checkbox)  # prevent garbage collection while dialog exists
+                            # wrap to prevent garbage collection while dialog exists
+                            window_checkbox = Window('Button', parent_window=self, wrap_hwnd=hwnd_control)
 
-                            rc_text = Dialog.calculate_text_rect(window_title, hfont=hfont)
-                            hwnd_static = user32.CreateWindowExW(
-                                    0,
-                                    WC_STATIC,
-                                    window_title,
-                                    WS_CHILD | SS_SIMPLE | WS_VISIBLE,
-                                    16, 3,
-                                    rc_text.right,
-                                    rc_text.bottom,
-                                    window_checkbox.hwnd,
-                                    0, 0, 0)
-                            user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
+                            text_width, text_height = calculate_text_size(window_title, hfont=hfont)
+                            static = Static(parent_window=window_checkbox,
+                                    style=WS_CHILD | SS_SIMPLE | WS_VISIBLE,
+                                    left=16, top=3, width=text_width, height=text_height,
+                                    window_title=window_title)
+                            static.set_font(hfont=hfont)
 
                             def _on_WM_CTLCOLORSTATIC(hwnd, wparam, lparam):
                                 gdi32.SetTextColor(wparam, TEXT_COLOR_DARK if self.is_dark else COLOR_WINDOWTEXT)
@@ -400,19 +450,13 @@ class Dialog(Window):
                             user32.MapWindowPoints(None, hwnd, byref(rc), 2)
                             buf = create_unicode_buffer(64)
                             user32.GetWindowTextW(hwnd_control, buf, 64)
-                            window_title = buf.value
 
-                            hwnd_static = user32.CreateWindowExW(
-                                    WS_EX_TRANSPARENT,
-                                    WC_STATIC,
-                                    window_title,
-                                    WS_CHILD | SS_SIMPLE | WS_VISIBLE,
-                                    rc.left + 10, rc.top,
-                                    rc.right - rc.left - 16, rc.bottom - rc.top,
-                                    hwnd,
-                                    0, 0, 0
-                                    )
-                            user32.SendMessageW(hwnd_static, WM_SETFONT, hfont, 0)
+                            static = Static(parent_window=self,
+                                    style=WS_CHILD | SS_SIMPLE | WS_VISIBLE,
+                                    ex_style=WS_EX_TRANSPARENT,
+                                    left=rc.left + 10, top=rc.top, width=rc.right - rc.left - 16, height=rc.bottom - rc.top,
+                                    window_title=buf.value)
+                            static.set_font(hfont=hfont)
 
                     elif window_class == 'Edit' and self.is_dark:
                         # check parent
@@ -422,12 +466,13 @@ class Dialog(Window):
                                     user32.GetWindowLongPtrA(hwnd_control, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE)
                             user32.SetWindowLongPtrA(hwnd_control, GWL_STYLE,
                                     user32.GetWindowLongPtrA(hwnd_control, GWL_STYLE) | WS_BORDER)
+
                             rc = RECT()
                             user32.GetWindowRect(hwnd_control, byref(rc))
                             w, h = rc.right - rc.left, rc.bottom - rc.top
                             user32.SendMessageW(hwnd_control, EM_SETMARGINS, EC_LEFTMARGIN, 2)
                             user32.MapWindowPoints(None, user32.GetParent(hwnd_control), byref(rc), 1)
-                            user32.SetWindowPos(hwnd_control, 0, rc.left, rc.top + 2, w, h - 4, SWP_FRAMECHANGED)
+                            user32.SetWindowPos(hwnd_control, 0, rc.left, rc.top + 1, w, h - 2, SWP_FRAMECHANGED)
 
                     elif window_class == 'ComboLBox' and self.is_dark:
                         uxtheme.SetWindowTheme(hwnd_control, 'DarkMode_CFD', None)
@@ -444,7 +489,7 @@ class Dialog(Window):
 
             elif msg == WM_THEMECHANGED:
                 dwm_use_dark_mode(hwnd, self.is_dark)
-                for hwnd_control in controls:
+                for hwnd_control in self.controls:
                     buf = create_unicode_buffer(32)
                     user32.GetClassNameW(hwnd_control, buf, 32)
                     window_class = buf.value
@@ -452,21 +497,33 @@ class Dialog(Window):
                         uxtheme.SetWindowTheme(hwnd_control, 'DarkMode_Explorer' if self.is_dark else 'Explorer', None)
 
                     elif window_class == 'Edit':
+                        rc = RECT()
+                        user32.GetWindowRect(hwnd_control, byref(rc))
+                        w, h = rc.right - rc.left, rc.bottom - rc.top
+
                         if self.is_dark:
                             user32.SetWindowLongPtrA(hwnd_control, GWL_EXSTYLE,
                                     user32.GetWindowLongPtrA(hwnd_control, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE)
                             user32.SetWindowLongPtrA(hwnd_control, GWL_STYLE,
                                     user32.GetWindowLongPtrA(hwnd_control, GWL_STYLE) | WS_BORDER)
+
+                            user32.SendMessageW(hwnd_control, EM_SETMARGINS, EC_LEFTMARGIN, 2)
+                            user32.MapWindowPoints(None, user32.GetParent(hwnd_control), byref(rc), 1)
+                            user32.SetWindowPos(hwnd_control, 0, rc.left, rc.top + 1, w, h - 2, 0)  #, SWP_FRAMECHANGED)
                         else:
                             user32.SetWindowLongPtrA(hwnd_control, GWL_EXSTYLE,
                                     user32.GetWindowLongPtrA(hwnd_control, GWL_EXSTYLE) | WS_EX_CLIENTEDGE)
                             user32.SetWindowLongPtrA(hwnd_control, GWL_STYLE,
                                     user32.GetWindowLongPtrA(hwnd_control, GWL_STYLE) & ~WS_BORDER)
-                        user32.SetWindowPos(hwnd_control, 0, 0, 0, 0, 0,
-                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+
+                            user32.SendMessageW(hwnd_control, EM_SETMARGINS, EC_LEFTMARGIN, 0)
+                            user32.MapWindowPoints(None, user32.GetParent(hwnd_control), byref(rc), 1)
+                            user32.SetWindowPos(hwnd_control, 0, rc.left, rc.top - 1, w, h + 2, 0)  #, SWP_FRAMECHANGED)
+
+                self.force_redraw_window()
 
             elif self.is_dark:
-                if msg == WM_CTLCOLORDLG or msg == WM_CTLCOLORSTATIC:
+                if msg == WM_CTLCOLORDLG or (msg == WM_CTLCOLORSTATIC and handle_static):
                     gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
                     gdi32.SetBkColor(wparam, BG_COLOR_DARK)
                     return BG_BRUSH_DARK
@@ -477,38 +534,13 @@ class Dialog(Window):
 
                 elif msg == WM_CTLCOLOREDIT or msg == WM_CTLCOLORLISTBOX:
                     gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)
-                    gdi32.SetBkColor(wparam, CONTROL_COLOR_DARK)
-                    gdi32.SetDCBrushColor(wparam, CONTROL_COLOR_DARK)
+                    gdi32.SetBkColor(wparam, CONTROL_BG_COLOR_DARK)
+                    gdi32.SetDCBrushColor(wparam, CONTROL_BG_COLOR_DARK)
                     return gdi32.GetStockObject(DC_BRUSH)
 
             return dialog_proc_callback(hwnd, msg, wparam, lparam)
 
         self.__dialogproc = WNDPROC(_dialog_proc_callback)
-
-    @staticmethod
-    def calculate_text_rect(text, font_name='MS Shell Dlg', font_size=8, hfont=None):
-        hdc = user32.GetDC(0)
-        if hfont is None:
-            hfont = gdi32.CreateFontW(font_size, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-                    CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
-        gdi32.SelectObject(hdc, hfont)
-        rc = RECT(0, 0, 0, 0)
-        user32.DrawTextW(hdc, text, -1, byref(rc), DT_CALCRECT | DT_LEFT | DT_NOPREFIX)
-        user32.ReleaseDC(0, hdc)
-        return rc
-
-    # logical coordinates, not pixels
-    @staticmethod
-    def calculate_multiline_text_height(text, text_width, font_name='MS Shell Dlg', font_size=8, hfont=None):
-        hdc = user32.GetDC(0)
-        if hfont is None:
-            hfont = gdi32.CreateFontW(font_size, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-                    CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font_name)
-        gdi32.SelectObject(hdc, hfont)
-        rc = RECT(0, 0, text_width, 0)
-        user32.DrawTextW(hdc, text, -1, byref(rc), DT_CALCRECT | DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX)
-        user32.ReleaseDC(0, hdc)
-        return rc.bottom
 
     def _show_async(self, is_dark=False):
         self.__is_async = True
@@ -522,18 +554,18 @@ class Dialog(Window):
                 )
         user32.ShowWindow(self.hwnd, SW_SHOW)
 
-    def _show_sync(self, is_dark=False):
+    def _show_sync(self, is_dark=False, lparam=0):
         self.__is_async = False
         self.is_dark = self.parent_window.is_dark
         res = user32.DialogBoxIndirectParamW(
-                0,
-                byref(self.__dialog_data),
-                self.parent_window.hwnd,
-                self.__dialogproc,
-                0
-                )
+            0,
+            byref(self.__dialog_data),
+            self.parent_window.hwnd,
+            self.__dialogproc,
+            lparam
+        )
         self.hwnd = None
-        self.__dialog_children = []
+        self.children = []
         return res
 
     def apply_theme(self, is_dark):

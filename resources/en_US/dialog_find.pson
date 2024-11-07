@@ -1,14 +1,12 @@
 {
-    "id": 1541,
-    "class": "DIALOGEX",
     "rect": [
-        36,
-        44,
-        230,
-        94
+        30,
+        73,
+        236,
+        74
     ],
     "style": -2134376256,
-    "caption": "Replace",
+    "caption": "Find",
     "font": [
         "MS Shell Dlg",
         8
@@ -21,115 +19,103 @@
             "style": 1342308352,
             "rect": [
                 4,
-                9,
-                48,
+                8,
+                42,
                 8
             ]
         },
         {
             "caption": "",
-            "id": 1152,
+            "id": ID_EDIT_FIND,
             "class": "EDIT",
             "style": 1350762624,
             "rect": [
-                54,
+                47,
                 7,
-                114,
-                12
-            ]
-        },
-        {
-            "caption": "Re&place with:",
-            "id": -1,
-            "class": "STATIC",
-            "style": 1342308352,
-            "rect": [
-                4,
-                26,
-                48,
-                8
-            ]
-        },
-        {
-            "caption": "",
-            "id": 1153,
-            "class": "EDIT",
-            "style": 1350762624,
-            "rect": [
-                54,
-                24,
-                114,
+                128,
                 12
             ]
         },
         {
             "caption": "Match &case",
-            "id": 1041,
+            "id": ID_MATCH_CASE,
             "class": "BUTTON",
             "style": 1342242819,
             "rect": [
                 4,
-                62,
-                59,
-                12
-            ]
-        },
-        {
-            "caption": "W&rap around",
-            "id": 1042,
-            "class": "BUTTON",
-            "style": 1342242819,
-            "rect": [
-                4,
-                78,
+                42,
                 64,
                 12
             ]
         },
         {
+            "caption": "W&rap around",
+            "id": ID_WRAP_AROUND,
+            "class": "BUTTON",
+            "style": 1342242819,
+            "rect": [
+                4,
+                58,
+                64,
+                12
+            ]
+        },
+        {
+            "caption": "Direction",
+            "id": ID_DIRECTION,
+            "class": "BUTTON",
+            "style": 1342308359,
+            "rect": [
+                107,
+                26,
+                68,
+                28
+            ]
+        },
+        {
+            "caption": "&Up",
+            "id": ID_UP,
+            "class": "BUTTON",
+            "style": 1342308361,
+            "rect": [
+                111,
+                38,
+                25,
+                12
+            ]
+        },
+        {
+            "caption": "&Down",
+            "id": ID_DOWN,
+            "class": "BUTTON",
+            "style": 1342177289,
+            "rect": [
+                138,
+                38,
+                35,
+                12
+            ]
+        },
+        {
             "caption": "&Find Next",
-            "id": 1,
+            "id": ID_OK,
             "class": "BUTTON",
             "style": 1342373889,
             "rect": [
-                174,
-                4,
-                50,
-                14
-            ]
-        },
-        {
-            "caption": "&Replace",
-            "id": 1024,
-            "class": "BUTTON",
-            "style": 1342242816,
-            "rect": [
-                174,
-                21,
-                50,
-                14
-            ]
-        },
-        {
-            "caption": "Replace &All",
-            "id": 1025,
-            "class": "BUTTON",
-            "style": 1342242816,
-            "rect": [
-                174,
-                38,
+                182,
+                5,
                 50,
                 14
             ]
         },
         {
             "caption": "Cancel",
-            "id": 2,
+            "id": ID_CANCEL,
             "class": "BUTTON",
             "style": 1342242816,
             "rect": [
-                174,
-                55,
+                182,
+                23,
                 50,
                 14
             ]

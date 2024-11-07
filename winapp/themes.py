@@ -1,10 +1,10 @@
 ﻿from ctypes import c_int, byref, sizeof, windll, Structure, WINFUNCTYPE, POINTER, cast
 from ctypes.wintypes import INT, DWORD, BOOL, HWND, UINT, WPARAM, LPARAM, HMENU, HDC, HKEY, BYTE
 
-from winapp.controls.common import DRAWITEMSTRUCT, MEASUREITEMSTRUCT
-from winapp.wintypes_extended import LONG_PTR
-from winapp.dlls import advapi32, gdi32
-from winapp.const import HKEY_CURRENT_USER, ERROR_SUCCESS, PS_INSIDEFRAME
+from .controls.common import DRAWITEMSTRUCT, MEASUREITEMSTRUCT
+from .wintypes_extended import LONG_PTR
+from .dlls import advapi32, gdi32
+from .const import HKEY_CURRENT_USER, ERROR_SUCCESS, PS_INSIDEFRAME, REG_DWORD
 
 DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 
@@ -16,12 +16,17 @@ WM_UAHINITMENU         =0x0093	# handled by DefWindowProc
 WM_UAHMEASUREMENUITEM  =0x0094	# lParam is UAHMEASUREMENUITEM
 WM_UAHNCPAINTMENUPOPUP =0x0095	# handled by DefWindowProc
 
-# Dark colors/brushes (brushes are never deleted, but only created once)
 BG_COLOR_DARK = 0x202020
+#BG_COLOR_DARK = 0x101010
 BG_BRUSH_DARK = gdi32.CreateSolidBrush(BG_COLOR_DARK)
+
 BG_COLOR_DARKER = 0x171717
 
-CONTROL_COLOR_DARK = 0x333333
+CONTROL_BG_COLOR_DARK = 0x383838  #0x333333
+CONTROL_BG_BRUSH_DARK = gdi32.CreateSolidBrush(CONTROL_BG_COLOR_DARK)
+
+CONTROL_BG_COLOR_DARKER = 0x202020  #0x2b2b2b
+
 TEXT_COLOR_DARK = 0xe0e0e0
 
 MENUBAR_BG_COLOR_DARK = 0x2b2b2b
@@ -31,8 +36,8 @@ MENU_BG_BRUSH_HOT = gdi32.CreateSolidBrush(0x3e3e3e)
 BG_BRUSH_BLACK = gdi32.CreateSolidBrush(0x000000)
 
 # For testing stuff
-COLOR_YELLOW = 0x00ffff
-BRUSH_YELLOW = gdi32.CreateSolidBrush(COLOR_YELLOW)
+#COLOR_YELLOW = 0x00ffff
+#BRUSH_YELLOW = gdi32.CreateSolidBrush(COLOR_YELLOW)
 
 class PreferredAppMode():
     Default = 0
@@ -102,13 +107,41 @@ class UAHMEASUREMENUITEM(Structure):
         ("umi", UAHMENUITEM),
     ]
 
-def reg_should_use_dark_mode():
+# weg
+def reg_should_use_dark_mode(use_system=False):
     use_dark_mode = False
     hkey = HKEY()
     if advapi32.RegOpenKeyW(HKEY_CURRENT_USER, 'Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize' , byref(hkey)) == ERROR_SUCCESS:
-        data = (BYTE * sizeof(DWORD))()
+        data = DWORD()
         cbData = DWORD(sizeof(data))
-        if advapi32.RegQueryValueExW(hkey, 'AppsUseLightTheme', None, None, byref(data), byref(cbData)) == ERROR_SUCCESS:
-            use_dark_mode = cast(data, POINTER(DWORD)).contents.value == 0
+        if advapi32.RegQueryValueExW(hkey, 'SystemUsesLightTheme' if use_system else 'AppsUseLightTheme', None, None, byref(data), byref(cbData)) == ERROR_SUCCESS:
+            use_dark_mode = not bool(data.value)
         advapi32.RegCloseKey(hkey)
     return use_dark_mode
+
+def reg_get_use_dark_mode():
+    use_dark_mode_apps, use_dark_mode_system = False, False
+    hkey = HKEY()
+    if advapi32.RegOpenKeyW(HKEY_CURRENT_USER, 'Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize' , byref(hkey)) == ERROR_SUCCESS:
+        data = DWORD()
+        cbData = DWORD(sizeof(data))
+        if advapi32.RegQueryValueExW(hkey, 'AppsUseLightTheme', None, None, byref(data), byref(cbData)) == ERROR_SUCCESS:
+            use_dark_mode_apps = not bool(data.value)
+        if advapi32.RegQueryValueExW(hkey, 'SystemUsesLightTheme', None, None, byref(data), byref(cbData)) == ERROR_SUCCESS:
+            use_dark_mode_system = not bool(data.value)
+        advapi32.RegCloseKey(hkey)
+    return use_dark_mode_apps, use_dark_mode_system
+
+def reg_set_use_dark_mode_apps(use_dark):
+    hkey = HKEY()
+    if advapi32.RegOpenKeyW(HKEY_CURRENT_USER, 'Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize' , byref(hkey)) == ERROR_SUCCESS:
+        dwsize = sizeof(DWORD)
+        advapi32.RegSetValueExW(hkey, 'AppsUseLightTheme', 0, REG_DWORD, byref(DWORD(int(not use_dark))), dwsize)
+        advapi32.RegCloseKey(hkey)
+
+def reg_set_use_dark_mode_system(use_dark):
+    hkey = HKEY()
+    if advapi32.RegOpenKeyW(HKEY_CURRENT_USER, 'Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize' , byref(hkey)) == ERROR_SUCCESS:
+        dwsize = sizeof(DWORD)
+        advapi32.RegSetValueExW(hkey, 'SystemUsesLightTheme', 0, REG_DWORD, byref(DWORD(int(not use_dark))), dwsize)
+        advapi32.RegCloseKey(hkey)

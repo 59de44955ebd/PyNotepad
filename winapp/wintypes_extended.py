@@ -1,6 +1,6 @@
 from ctypes import c_uint64, c_ulong, c_long, c_longlong, c_int, c_int64, WINFUNCTYPE, CFUNCTYPE, Structure, POINTER
-from ctypes.wintypes import HANDLE, HWND, LPARAM, WPARAM, LONG, WORD, DWORD, LPCWSTR, LPWSTR, LPSTR, INT, UINT, BOOL, HMODULE, BYTE, WCHAR, LPVOID
-from winapp.const import LF_FACESIZE
+from ctypes.wintypes import HANDLE, HWND, LPARAM, WPARAM, LONG, WORD, DWORD, LPCWSTR, LPWSTR, LPSTR, INT, UINT, BOOL, HMODULE, BYTE, WCHAR, LPVOID, SHORT
+from .const import LF_FACESIZE
 
 import sys
 is_64_bit = sys.maxsize > 2**32
@@ -15,7 +15,6 @@ WNDPROC = WINFUNCTYPE(LONG_PTR, HWND, UINT, WPARAM, LPARAM)
 WNDENUMPROC = WINFUNCTYPE(BOOL, HWND, LPARAM)
 WINEVENTPROCTYPE = WINFUNCTYPE(None, HANDLE, DWORD, HWND, LONG, LONG, DWORD, DWORD)
 ENUMRESNAMEPROCW = CFUNCTYPE(BOOL, HMODULE, LPCWSTR, LPWSTR, LONG_PTR)
-
 
 class LOGFONTW(Structure):
     _fields_ = [
@@ -50,6 +49,14 @@ class LOGFONTW(Structure):
 #);
 FONTENUMPROCW = CFUNCTYPE(INT, POINTER(LOGFONTW), LPVOID, DWORD, LPARAM)
 
+class COPYDATASTRUCT(Structure):
+    _fields_ = [
+        ('dwData', LPARAM),
+        ('cbData', DWORD),
+        ('lpData', LPVOID)
+    ]
+LPCOPYDATASTRUCT = POINTER(COPYDATASTRUCT)
+
 class ACCEL(Structure):
     _fields_ = [
         ("fVirt", BYTE),
@@ -75,3 +82,12 @@ def MAKEINTRESOURCEA(x):
 
 def MAKEINTRESOURCEW(x):
     return LPCWSTR(x)
+
+def GET_X_LPARAM(l):
+    return SHORT(l & 0xFFFF).value
+
+def GET_Y_LPARAM(l):
+    return SHORT((l >> 16) & 0xFFFF).value
+
+#((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))

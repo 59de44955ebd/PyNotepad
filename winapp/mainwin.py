@@ -3,13 +3,13 @@ from ctypes import (windll, WINFUNCTYPE, c_int64, c_int, c_uint, c_uint64, c_lon
 from ctypes.wintypes import (HWND, WORD, DWORD, LONG, HICON, WPARAM, LPARAM, HANDLE, LPCWSTR, MSG, UINT, LPWSTR, HINSTANCE,
         LPVOID, INT, RECT, POINT, BYTE, BOOL, COLORREF, LPPOINT)
 
-from winapp.const import *
-from winapp.wintypes_extended import *
-from winapp.dlls import comdlg32, gdi32, shell32, user32, ACCEL
-from winapp.window import *
-from winapp.menu import *
-from winapp.themes import *
-from winapp.dialog import *
+from .const import *
+from .wintypes_extended import *
+from .dlls import comdlg32, gdi32, shell32, user32, ACCEL
+from .window import *
+from .menu import *
+from .themes import *
+from .dialog import *
 
 
 VKEY_NAME_MAP = {
@@ -17,24 +17,29 @@ VKEY_NAME_MAP = {
     'Plus': VK_OEM_PLUS,
     'Minus': VK_OEM_MINUS,
     'Enter': VK_RETURN,
+    'Left': VK_LEFT,
+    'Right': VK_RIGHT,
 }
 
 
 class MainWin(Window):
 
     def __init__(self,
-            window_title='MyPythonApp',
-            window_class='MyPythonAppClass',
-            hicon=0,
-            left=CW_USEDEFAULT, top=CW_USEDEFAULT, width=CW_USEDEFAULT, height=CW_USEDEFAULT,
-            style=WS_OVERLAPPEDWINDOW,
-            ex_style=0,
-            color=None,
-            hbrush=None,
-            menu_data=None,
-            menu_mod_translation_table=None,
-            accelerators=None,
-            cursor=None):
+        window_title='MyPythonApp',
+        window_class='MyPythonAppClass',
+        hicon=0,
+        left=CW_USEDEFAULT, top=CW_USEDEFAULT, width=CW_USEDEFAULT, height=CW_USEDEFAULT,
+        style=WS_OVERLAPPEDWINDOW,
+        ex_style=0,
+#        color=None,
+        hbrush=COLOR_WINDOW + 1,
+        bg_brush_dark=BG_BRUSH_DARK,
+        menu_data=None,
+        menu_mod_translation_table=None,
+        accelerators=None,
+        cursor=None,
+        parent_window=None
+    ):
 
         self.hicon = hicon
 
@@ -72,20 +77,21 @@ class MainWin(Window):
 
         self.windowproc = WNDPROC(_window_proc_callback)
 
-        if type(color) == int:
-            hbrush = color + 1
-        elif type(color) == COLORREF:
-            hbrush = gdi32.CreateSolidBrush(color)
-        elif hbrush is None:
-            hbrush = COLOR_WINDOW + 1
+#        if type(color) == int:
+#            hbrush = color + 1
+#        elif type(color) == COLORREF:
+#            hbrush = gdi32.CreateSolidBrush(color)
+#        elif hbrush is None:
+#            hbrush = COLOR_WINDOW + 1
 
         self.bg_brush_light = hbrush
+        self.bg_brush_dark = bg_brush_dark
 
         newclass = WNDCLASSEX()
         newclass.lpfnWndProc = self.windowproc
         newclass.style = CS_VREDRAW | CS_HREDRAW
         newclass.lpszClassName = window_class
-        newclass.hBrush = hbrush
+        newclass.hBrush = self.bg_brush_light  #hbrush
         newclass.hCursor = user32.LoadCursorW(0, cursor if cursor else IDC_ARROW)
         newclass.hIcon = self.hicon
 
@@ -100,12 +106,14 @@ class MainWin(Window):
         user32.RegisterClassExW(byref(newclass))
 
         super().__init__(
-                newclass.lpszClassName,
-                style=style,
-                ex_style=ex_style,
-                left=left, top=top, width=width, height=height,
-                window_title=window_title,
-                hmenu=self.hmenu)
+            newclass.lpszClassName,
+            style=style,
+            ex_style=ex_style,
+            left=left, top=top, width=width, height=height,
+            window_title=window_title,
+            hmenu=self.hmenu,
+            parent_window=parent_window
+        )
 
         if accelerators:
             accels += accelerators
@@ -178,8 +186,10 @@ class MainWin(Window):
             # the break statement then the following else
             # block will be executed and outer loop will continue
             else:
+
                 if not user32.TranslateAcceleratorW(self.hwnd, self.__haccel, byref(msg)):
                     user32.TranslateMessage(byref(msg))
+#                    print('>>>', msg.message)
                     user32.DispatchMessageW(byref(msg))
 
         if self.__haccel:
@@ -198,14 +208,13 @@ class MainWin(Window):
         # Update colors of window titlebar
         dwm_use_dark_mode(self.hwnd, is_dark)
 
-        user32.SetClassLongPtrW(self.hwnd, GCL_HBRBACKGROUND, BG_BRUSH_DARK if is_dark else self.bg_brush_light)
+        user32.SetClassLongPtrW(self.hwnd, GCL_HBRBACKGROUND, self.bg_brush_dark if is_dark else self.bg_brush_light)
+
+        # Update colors of menus
+        uxtheme.SetPreferredAppMode(PreferredAppMode.ForceDark if is_dark else PreferredAppMode.ForceLight)
+        uxtheme.FlushMenuThemes()
 
         if self.__has_app_menus:
-            # Update colors of menus
-            uxtheme.SetPreferredAppMode(PreferredAppMode.ForceDark if is_dark else PreferredAppMode.ForceLight)
-            uxtheme.FlushMenuThemes()
-#            self.redraw_window()
-
             # Update colors of menubar
             if is_dark:
                 def _on_WM_UAHDRAWMENU(hwnd, wparam, lparam):
@@ -277,8 +286,8 @@ class MainWin(Window):
         self.__current_dialogs.append(dialog)
         dialog._show_async()
 
-    def dialog_show_sync(self, dialog):
-        res = dialog._show_sync()
+    def dialog_show_sync(self, dialog, lparam=0):
+        res = dialog._show_sync(lparam=lparam)
         user32.SetActiveWindow(self.hwnd)
         return res
 
@@ -320,13 +329,13 @@ class MainWin(Window):
         else:
             return None
 
-    def show_message_box(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK, dialog_width=None):
+    def show_message_box(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK):
 
 #        if not self.is_dark:
 #            return user32.MessageBoxW(self.hwnd, text, caption, utype)
 
-        font = ['MS Shell Dlg', 8]
-#        font = ['Segoe UI', -11]
+        font_name = 'Segoe UI'  # 'MS Shell Dlg'
+        font_size = 8
 
         if utype & MB_ICONINFORMATION:
             hicon = get_stock_icon(SIID_INFO)
@@ -341,8 +350,8 @@ class MainWin(Window):
 
         btn_ids = BUTTON_COMMAND_IDS[utype & 0xf]
 
-        if dialog_width is None:
-            dialog_width = 222 if hicon else (219 if len(btn_ids) > 2 else 189)  # 219 => 197
+        dialog_width = 260 if hicon else (240 if len(btn_ids) > 2 else 190)
+
         dialog_min_height = 74 if hicon else 62
 
         text_width = dialog_width - 60 if hicon else dialog_width - 27
@@ -351,7 +360,7 @@ class MainWin(Window):
         margin_right, margin_bottom = 10, 20
 
         # calulate required height for message text
-        text_height = Dialog.calculate_multiline_text_height(text, text_width, *font)
+        text_height = calculate_multiline_text_height(text, text_width, font_name, font_size)
 
         # if there is an icon and text height is smaller thsn icon height, center text vertically
         if hicon and text_height < 20:
@@ -359,39 +368,56 @@ class MainWin(Window):
 
         dialog_height = max(dialog_min_height, 54 + text_height)
 
-        dialog_dict = {'class': '#32770', 'caption': caption, 'font': font,
-                'rect': [0, 0, dialog_width, dialog_height],
-                'style': 2496137669, 'exstyle': 65793, 'controls': []}
+        dialog_dict = {
+            'class': '#32770',
+            'caption': caption,
+            'font': [font_name, font_size],
+            'rect': [0, 0, dialog_width, dialog_height],
+            'style': WS_CAPTION | WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_CENTER,
+            'exstyle': WS_EX_CONTROLPARENT | WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
+            'controls': []
+        }
 
         # add icon
         if hicon:
             text_x = 41
             dialog_dict['controls'].append({
-                    'id': 6, 'class': 'STATIC',
-                    'caption': '', 'rect': [14, 14, 21, 20],
-                    'style': 1342308355, 'exstyle': 4})
+                'id': 100,
+                'class': 'STATIC',
+                'caption': '',
+                'rect': [14, 14, 21, 20],
+                'style': WS_CHILDWINDOW | WS_GROUP | WS_VISIBLE | SS_ICON,
+                'exstyle': WS_EX_NOPARENTNOTIFY
+            })
 
         # add text
         dialog_dict['controls'].append({
-                'id': -1, 'class': 'STATIC', 'caption': text,
-                'rect': [text_x, text_y, text_width, text_height],
-                'style': 1342316672, 'exstyle': 4})
+            'id': 101,
+            'class': 'STATIC',
+            'caption': text,
+            'rect': [text_x, text_y, text_width, text_height],
+            'style': WS_CHILDWINDOW | WS_GROUP | WS_VISIBLE | SS_LEFT | SS_NOPREFIX,  # | SS_EDITCONTROL,
+            'exstyle': WS_EX_NOPARENTNOTIFY
+        })
 
         # add button(s)
         x = dialog_width - margin_right - len(btn_ids) * button_width - (len(btn_ids) - 1) * button_dist
         for i in range(len(btn_ids)):
             dialog_dict['controls'].append({
-                    'id': btn_ids[i], 'class': 'BUTTON',
-                    'caption': user32.MB_GetString(btn_ids[i] - 1),
-                    'rect': [x, dialog_height - margin_bottom, button_width, button_height],
-                    'style': WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_TEXT | (BS_DEFPUSHBUTTON if i == 0 else BS_PUSHBUTTON),
-                    'exstyle': 4})
+                'id': btn_ids[i],
+                'class': 'BUTTON',
+                'caption': user32.MB_GetString(btn_ids[i] - 1),
+                'rect': [x, dialog_height - margin_bottom, button_width, button_height],
+                'style': WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_TEXT | (BS_DEFPUSHBUTTON if i == 0 else BS_PUSHBUTTON),
+                'exstyle': WS_EX_NOPARENTNOTIFY
+            })
             x += button_width + button_dist
 
         def _dialog_proc_callback(hwnd, msg, wparam, lparam):
             if msg == WM_INITDIALOG:
                 if hicon:
-                    user32.SendMessageW(user32.GetDlgItem(hwnd, 6), STM_SETICON, hicon, 0)
+                    user32.SendMessageW(user32.GetDlgItem(hwnd, 100), STM_SETICON, hicon, 0)
+
             elif msg == WM_COMMAND:
                 control_id = LOWORD(wparam)
                 command = HIWORD(wparam)
@@ -401,41 +427,172 @@ class MainWin(Window):
 
         return self.dialog_show_sync(Dialog(self, dialog_dict, _dialog_proc_callback))
 
+
+    def show_message_box_modern(self, text, caption='', utype=MB_ICONINFORMATION | MB_OK):
+        font_name = 'Segoe UI'
+        font_size = 8
+
+        btn_ids = BUTTON_COMMAND_IDS[utype & 0xf]
+
+        dialog_width = 240 if len(btn_ids) > 2 else 190
+        margin_left = 6
+        margin_right = 7
+        margin_bottom = 20
+
+        text_y = 6
+        text_width = dialog_width - margin_left - margin_right
+        button_width, button_height, button_dist = 53, 14, 5
+
+        # large font for blue message text
+        hfont_message = gdi32.CreateFontW(
+            22,
+            0, 0, 0,
+            FW_NORMAL,
+            FALSE,
+            FALSE,
+            FALSE,
+            DEFAULT_CHARSET,
+            OUT_OUTLINE_PRECIS,
+            CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE,
+            'Segoe UI'
+        )
+
+        # calulate required height for message text
+        text_height = calculate_multiline_text_height(text, text_width * 8 // 22, hfont=hfont_message) + 2  # ???
+
+        dialog_height = text_height + 49
+
+        dialog_dict = {
+            'class': '#32770',
+            'caption': caption,
+            'font': [font_name, font_size],
+            'rect': [0, 0, dialog_width, dialog_height],
+            'style': WS_CAPTION | WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_CENTER,
+            'exstyle': WS_EX_CONTROLPARENT | WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
+            'controls': []
+        }
+
+        # add text
+        dialog_dict['controls'].append({
+            'id': 101,
+            'class': 'STATIC',
+            'caption': text,
+            'rect': [margin_left, text_y, text_width, text_height],
+            'style': WS_CHILDWINDOW | WS_GROUP | WS_VISIBLE | SS_LEFT | SS_NOPREFIX,
+            'exstyle': WS_EX_NOPARENTNOTIFY
+        })
+
+        # add button(s)
+        x = dialog_width - margin_right - len(btn_ids) * button_width - (len(btn_ids) - 1) * button_dist
+        for i in range(len(btn_ids)):
+            dialog_dict['controls'].append({
+                'id': btn_ids[i],
+                'class': 'BUTTON',
+                'caption': user32.MB_GetString(btn_ids[i] - 1),
+                'rect': [x, dialog_height - margin_bottom, button_width, button_height],
+                'style': WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_TEXT | (BS_DEFPUSHBUTTON if i == 0 else BS_PUSHBUTTON),
+                'exstyle': WS_EX_NOPARENTNOTIFY
+            })
+            x += button_width + button_dist
+
+        def _dialog_proc_callback(hwnd, msg, wparam, lparam):
+            if msg == WM_INITDIALOG:
+                user32.SendMessageW(user32.GetDlgItem(hwnd, 101), WM_SETFONT, hfont_message, 0)
+
+            elif msg == WM_CTLCOLORSTATIC:
+                if self.is_dark:
+                    gdi32.SetTextColor(wparam, TEXT_COLOR_DARK)  # light blue: 0xDAA026
+                    gdi32.SetBkColor(wparam, BG_COLOR_DARKER)
+                    return gdi32.GetStockObject(NULL_BRUSH)
+                else:
+                    gdi32.SetTextColor(wparam, 0x993300)  # dark blue
+                    return gdi32.GetStockObject(DC_BRUSH)
+
+            elif msg == WM_ERASEBKGND:
+                rc = RECT()
+                user32.GetClientRect(hwnd, byref(rc))
+                user32.FillRect(wparam, byref(rc), BG_BRUSH_DARK if self.is_dark else COLOR_3DFACE + 1)
+                rc.bottom -= 40
+                user32.FillRect(wparam, byref(rc), gdi32.CreateSolidBrush(BG_COLOR_DARKER) if self.is_dark else COLOR_WINDOW + 1)
+                rc.top = rc.bottom - 1
+                user32.FillRect(wparam, byref(rc), MENU_BG_BRUSH_HOT if self.is_dark else gdi32.CreateSolidBrush(0xdfdfdf))
+                return 1
+
+            elif msg == WM_COMMAND:
+                control_id = LOWORD(wparam)
+                command = HIWORD(wparam)
+                if command == BN_CLICKED:
+                    user32.EndDialog(hwnd, control_id)
+            return FALSE
+
+        res =  self.dialog_show_sync(Dialog(self, dialog_dict, _dialog_proc_callback, handle_static=False))
+        gdi32.DeleteObject(hfont_message)
+        return res
+
     def show_font_dialog(self, font_name, font_size, font_weight=FW_DONTCARE, font_italic=False):
         lf = LOGFONTW(
-                lfFaceName = font_name,
-                lfHeight = -kernel32.MulDiv(font_size, DPI_Y, 72),
-                lfCharSet = ANSI_CHARSET,
-                lfWeight = font_weight,
-                lfItalic = int(font_italic))
+            lfFaceName = font_name,
+            lfHeight = -kernel32.MulDiv(font_size, DPI_Y, 72),
+            lfCharSet = ANSI_CHARSET,
+            lfWeight = font_weight,
+            lfItalic = int(font_italic)
+        )
         cf = CHOOSEFONTW(
-                hwndOwner = self.hwnd,
-                lpLogFont = pointer(lf),
-                Flags = CF_INITTOLOGFONTSTRUCT | CF_NOSCRIPTSEL)
+            hwndOwner = self.hwnd,
+            lpLogFont = pointer(lf),
+            Flags = CF_INITTOLOGFONTSTRUCT | CF_NOSCRIPTSEL
+        )
         if comdlg32.ChooseFontW(byref(cf)):
-            return [
-                    lf.lfFaceName,
-                    kernel32.MulDiv(-lf.lfHeight, 72, DPI_Y) if lf.lfHeight < 0 else lf.lfHeight,
-                    lf.lfWeight,
-                    lf.lfItalic]
+            return (
+                lf.lfFaceName,
+                kernel32.MulDiv(-lf.lfHeight, 72, DPI_Y) if lf.lfHeight < 0 else lf.lfHeight,
+                lf.lfWeight,
+                lf.lfItalic > 0
+            )
+
+    def show_color_dialog(self, initialColor=COLORREF(0), custom_colors=[]):
+        cc = CHOOSECOLORW()
+        cc.hwndOwner = self.hwnd
+        cc.Flags = CC_SOLIDCOLOR | CC_FULLOPEN | CC_RGBINIT
+        cc.lpCustColors = (COLORREF * 16)()
+        for i, c in enumerate(custom_colors[:16]):
+            cc.lpCustColors[i] = c
+        cc.rgbResult = initialColor
+        if comdlg32.ChooseColorW(byref(cc)):
+            return cc.rgbResult
 
     @staticmethod
     def __handle_menu_items(hmenu, menu_items, accels=None, key_mod_translation=None):
         for row in menu_items:
+            if row is None or row['caption'] == '-':
+                user32.AppendMenuW(hmenu, MF_SEPARATOR, 0, '-')
+                continue
             if 'items' in row:
                 hmenu_child = user32.CreateMenu()
-                user32.AppendMenuW(hmenu, MF_POPUP, hmenu_child, row['caption'])
-                if 'hbitmap' in row:
+                flags = MF_POPUP
+                if 'flags' in row and 'GRAYED' in row['flags']:
+                    flags |= MF_GRAYED
+                user32.AppendMenuW(hmenu, flags, hmenu_child, row['caption'])
+
+                if 'id' in row or 'hbitmap' in row:
                     info = MENUITEMINFOW()
-                    ok = user32.GetMenuItemInfoW(hmenu, hmenu_child, FALSE, byref(info))
-                    info.fMask = MIIM_BITMAP
-                    info.hbmpItem = row['hbitmap']
+#                    ok = user32.GetMenuItemInfoW(hmenu, hmenu_child, FALSE, byref(info))
+                    info.fMask = 0
+                    if 'id' in row:
+                        info.wID = row['id'] if 'id' in row else -1
+                        info.fMask |= MIIM_ID
+                    if 'hbitmap' in row:
+                        info.hbmpItem = row['hbitmap']
+                        info.fMask |= MIIM_BITMAP
                     user32.SetMenuItemInfoW(hmenu, hmenu_child, FALSE, byref(info))
+
                 MainWin.__handle_menu_items(hmenu_child, row['items'], accels, key_mod_translation)
             else:
-                if row['caption'] == '-':
-                    user32.AppendMenuW(hmenu, MF_SEPARATOR, 0, '-')
-                    continue
+#                if row['caption'] == '-':
+#                    user32.AppendMenuW(hmenu, MF_SEPARATOR, 0, '-')
+#                    continue
                 id = row['id'] if 'id' in row else None
                 flags = MF_STRING
                 if 'flags' in row:
@@ -478,7 +635,7 @@ class MainWin(Window):
 
                 if 'hbitmap' in row:
                     info = MENUITEMINFOW()
-                    ok = user32.GetMenuItemInfoW(hmenu, id, FALSE, byref(info))
+#                    ok = user32.GetMenuItemInfoW(hmenu, id, FALSE, byref(info))
                     info.fMask = MIIM_BITMAP
                     info.hbmpItem = row['hbitmap']
                     user32.SetMenuItemInfoW(hmenu, id, FALSE, byref(info))
